@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="80" fill="#080818"/>
+  <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#1a1a4a"/>
+    <stop offset="100%" stop-color="#080818"/>
+  </radialGradient>
+  <rect width="512" height="512" rx="80" fill="url(#glow)"/>
+
+  <!-- TW Arrow -->
+  <rect x="20" y="155" width="60" height="60" rx="10" fill="#e07030" opacity="0.9"/>
+  <text x="50" y="193" font-family="Arial Black" font-size="17" font-weight="900" fill="white" text-anchor="middle">TW</text>
+
+  <!-- Tile 1 - TL green -->
+  <rect x="90" y="150" width="72" height="72" rx="12" fill="#2d5a27" stroke="#4a9a40" stroke-width="2"/>
+  <text x="126" y="200" font-family="Arial Black" font-size="30" font-weight="900" fill="#00e676" text-anchor="middle">G</text>
+  <text x="150" y="163" font-family="Arial" font-size="13" fill="#00e676">TL</text>
+
+  <!-- Tile 2 - TL green -->
+  <rect x="172" y="150" width="72" height="72" rx="12" fill="#2d5a27" stroke="#4a9a40" stroke-width="2"/>
+  <text x="208" y="200" font-family="Arial Black" font-size="30" font-weight="900" fill="#00e676" text-anchor="middle">W</text>
+  <text x="232" y="163" font-family="Arial" font-size="13" fill="#00e676">TL</text>
+
+  <!-- Tile 3 - blank -->
+  <rect x="254" y="150" width="72" height="72" rx="12" fill="#1a1a3a" stroke="#2a2a5a" stroke-width="2"/>
+
+  <!-- Tile 4 - blank -->
+  <rect x="336" y="150" width="72" height="72" rx="12" fill="#1a1a3a" stroke="#2a2a5a" stroke-width="2"/>
+
+  <!-- Tile 5 - TL green -->
+  <rect x="418" y="150" width="72" height="72" rx="12" fill="#2d5a27" stroke="#4a9a40" stroke-width="2"/>
+  <text x="454" y="200" font-family="Arial Black" font-size="30" font-weight="900" fill="#00e676" text-anchor="middle">S</text>
+  <text x="478" y="163" font-family="Arial" font-size="13" fill="#00e676">TL</text>
+
+  <!-- App name -->
+  <text x="256" y="310" font-family="Arial Black" font-size="52" font-weight="900" text-anchor="middle" fill="#00f0ff">GUESS</text>
+  <text x="256" y="368" font-family="Arial Black" font-size="52" font-weight="900" text-anchor="middle" fill="#ffffff">WORD</text>
+  <text x="256" y="420" font-family="Arial Black" font-size="40" font-weight="900" text-anchor="middle" fill="#bf00ff">SOLVER</text>
+
+  <!-- Glow line -->
+  <linearGradient id="lineGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#080818"/>
+    <stop offset="50%" stop-color="#00f0ff"/>
+    <stop offset="100%" stop-color="#080818"/>
+  </linearGradient>
+  <rect x="80" y="430" width="352" height="3" rx="2" fill="url(#lineGlow)" opacity="0.8"/>
+
+  <text x="256" y="468" font-family="Arial" font-size="17" fill="#5050aa" text-anchor="middle" letter-spacing="3">WWF · 5-LETTER</text>
+</svg>

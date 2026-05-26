@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Guess Word">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>Grok Guess Word — WWF Solver</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
@@ -709,6 +716,15 @@ document.getElementById('posModal').addEventListener('click', function(e){
 // ─── Init ─────────────────────────────────────────────────────────────────────
 buildKeyboard();
 buildTlSlots();
+
+// ─── Service Worker registration ──────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(r) { console.log('SW registered:', r.scope); })
+      .catch(function(e) { console.log('SW failed:', e); });
+  });
+}
 </script>
 </body>
 </html>
