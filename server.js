@@ -1,486 +1,368 @@
 const express = require('express');
 const Database = require('better-sqlite3');
 const path = require('path');
+const cors = require('cors');
+const PDFDocument = require('pdfkit');
+const nodemailer = require('nodemailer');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Letter values ────────────────────────────────────────────────────────────
-const LETTER_VALUES = {
-  A:1,B:4,C:4,D:2,E:1,F:4,G:3,H:3,I:1,J:10,K:5,
-  L:2,M:4,N:2,O:1,P:4,Q:10,R:1,S:1,T:1,U:2,V:5,
-  W:4,X:8,Y:3,Z:10
-};
+// Initialize database
+const dbPath = path.join(__dirname, 'timecard.db');
+if (!fs.existsSync(dbPath)) {
+  console.log('Database not found. Run: node setup-timecard-db.js');
+  process.exit(1);
+}
+const db = new Database(dbPath);
 
-function lv(ch) { return LETTER_VALUES[ch.toUpperCase()] || 1; }
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'client', 'dist')));
 
-// ─── Scoring formula ──────────────────────────────────────────────────────────
-// Sorted descending: vals[0]=highest, vals[1]=2nd highest
-// word_score = 3*vals[0] + 2*vals[1] + vals[2] + vals[3] + vals[4]
-// final_score = word_score * 3  (Triple Word row)
-function computeWordScore(word) {
-  const v = word.toUpperCase().split('').map(lv).sort((a, b) => b - a);
-  return 3*v[0] + 2*v[1] + v[2] + v[3] + v[4];
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function getPayPeriod(dateStr) {
+  // 2-week pay periods anchored to 2024-01-01 (Monday)
+  const anchor = new Date('2024-01-01T00:00:00');
+  const target = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  const msPerPeriod = 14 * 24 * 60 * 60 * 1000;
+  const diff = target - anchor;
+  const periodIndex = Math.floor(diff / msPerPeriod);
+  const start = new Date(anchor.getTime() + periodIndex * msPerPeriod);
+  const end = new Date(start.getTime() + 13 * 24 * 60 * 60 * 1000);
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
 }
 
-// ─── Precompute all valid sorted letter-value patterns ─────────────────────────
-// Valid WWF letter values: 1,2,3,4,5,8,10
-const VALID_VALS = [1, 2, 3, 4, 5, 8, 10];
-
-// VALID_PATTERNS[target] = Set of pattern strings e.g. "4·3·2·1·1"
-const VALID_PATTERNS = new Map();
-for (const b1 of VALID_VALS)
-  for (const b2 of VALID_VALS.filter(v => v <= b1))
-    for (const b3 of VALID_VALS.filter(v => v <= b2))
-      for (const b4 of VALID_VALS.filter(v => v <= b3))
-        for (const b5 of VALID_VALS.filter(v => v <= b4)) {
-          const ws = 3*b1 + 2*b2 + b3 + b4 + b5;
-          const target = ws * 3;
-          const key = `${b1}·${b2}·${b3}·${b4}·${b5}`;
-          if (!VALID_PATTERNS.has(target)) VALID_PATTERNS.set(target, new Set());
-          VALID_PATTERNS.get(target).add(key);
-        }
-
-// ─── Result word priority (most common letters first) ─────────────────────────
-const PRIORITY_ORDER = 'TSROIEAUNLDYHGWPMFCBVKXZQJ'.split('');
-const PRIORITY = Object.fromEntries(PRIORITY_ORDER.map((c, i) => [c, i]));
-
-function wordPriority(word) {
-  return word.toUpperCase().split('').reduce((s, ch) => s + (PRIORITY[ch] ?? 99), 0);
+function formatDate(isoStr) {
+  const d = new Date(isoStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// ─── Letter pattern of a word (sorted desc, dot-joined) ───────────────────────
-function letterPattern(word) {
-  return word.toUpperCase().split('').map(lv).sort((a, b) => b - a).join('·');
-}
-
-// ─── Which positions are the top-3 highest-value letters ──────────────────────
-// Tiebreaker: reverse alpha (Z beats A), then leftmost position wins
-function top3Positions(word) {
-  const w = word.toUpperCase();
-  const ranked = w.split('').map((ch, i) => ({
-    i, v: lv(ch), a: ch.charCodeAt(0) - 65
-  }));
-  ranked.sort((a, b) => {
-    if (b.v !== a.v) return b.v - a.v;
-    if (b.a !== a.a) return b.a - a.a;
-    return a.i - b.i;
-  });
-  return new Set(ranked.slice(0, 3).map(r => r.i));
-}
-
-// Which positions get the TL (×3) and DL (×2) bonuses for display purposes
-function bonusPositions(word) {
-  const w = word.toUpperCase();
-  const ranked = w.split('').map((ch, i) => ({
-    i, v: lv(ch), a: ch.charCodeAt(0) - 65
-  }));
-  ranked.sort((a, b) => {
-    if (b.v !== a.v) return b.v - a.v;
-    if (b.a !== a.a) return b.a - a.a;
-    return a.i - b.i;
-  });
-  return { tl: ranked[0].i, dl: ranked[1].i };
-}
-
-// ─── Word cache ───────────────────────────────────────────────────────────────
-let _words = null;
-function allWords() {
-  if (!_words) {
-    const db = new Database(path.join(__dirname, 'words.db'), { readonly: true });
-    _words = db.prepare('SELECT word FROM words').all().map(r => r.word.toUpperCase());
-    db.close();
-    console.log(`Loaded ${_words.length} words into memory`);
+function getDayLabels(startDate) {
+  const days = [];
+  const d = new Date(startDate + 'T00:00:00');
+  for (let i = 0; i < 14; i++) {
+    const cur = new Date(d.getTime() + i * 86400000);
+    days.push({
+      label: cur.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }),
+      short: cur.toLocaleDateString('en-US', { weekday: 'short' }),
+      date: cur.toISOString().slice(0, 10),
+    });
   }
-  return _words;
+  return days;
 }
 
-// ─── Smart starter suggestions ────────────────────────────────────────────────
-function computeStarters(candidates) {
-  if (candidates.length === 0) return [];
+// ─── API Routes ─────────────────────────────────────────────────────────────
 
-  // Positional letter frequency across all candidates
-  const freq = [{},{},{},{},{}];
-  for (const word of candidates)
-    for (let i = 0; i < 5; i++)
-      freq[i][word[i]] = (freq[i][word[i]] || 0) + 1;
-
-  // Score each candidate by how often its letters appear at those positions
-  const scored = candidates.map(word => {
-    let score = 0;
-    for (let i = 0; i < 5; i++) score += freq[i][word[i]] || 0;
-    return { word, score };
-  });
-  scored.sort((a, b) => b.score - a.score || wordPriority(a.word) - wordPriority(b.word));
-
-  // Return top 6, de-duplicated by pattern
-  const seen = new Set();
-  const starters = [];
-  for (const { word } of scored) {
-    const pat = letterPattern(word);
-    if (!seen.has(pat)) { seen.add(pat); starters.push(word); }
-    if (starters.length >= 6) break;
-  }
-  return starters;
-}
-
-// ─── /api/solve ───────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '4mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/api/solve', (req, res) => {
-  const {
-    score,
-    tlPos = '',
-    dlPos = '',
-    mustInclude = '',
-    mustExclude = '',
-    blocked = '',
-    pos0, pos1, pos2, pos3, pos4
-  } = req.query;
-
-  const targetScore = parseInt(score);
-
-  if (!targetScore || targetScore % 3 !== 0 || targetScore < 24) {
-    return res.json({ error: 'Score must be a positive multiple of 3 (minimum 24)' });
-  }
-
-  const baseScore = targetScore / 3;
-
-  // TL/DL position lock — exact bonus position filter
-  // tlPos = 0-4 index where the highest-value letter must land (TL ×3)
-  // dlPos = 0-4 index where the 2nd-highest-value letter must land (DL ×2)
-  const tlPosLock = tlPos !== '' ? parseInt(tlPos) : null;
-  const dlPosLock = dlPos !== '' ? parseInt(dlPos) : null;
-
-  // Letter filters
-  const mustIncArr = mustInclude.toUpperCase().split('').filter(Boolean);
-  const blockedSet = new Set([
-    ...blocked.toUpperCase().split(''),
-    ...mustExclude.toUpperCase().split('')
-  ].filter(Boolean));
-
-  // Exact position filters (pos0–pos4)
-  const posFilters = [pos0, pos1, pos2, pos3, pos4].map(p => p ? p.toUpperCase() : null);
-
-  const words = allWords();
-  const matched = [];
-
-  for (const word of words) {
-    // ① Score check (fastest: arithmetic only)
-    if (computeWordScore(word) !== baseScore) continue;
-
-    // ② TL/DL position lock check
-    if (tlPosLock !== null || dlPosLock !== null) {
-      const bp = bonusPositions(word);
-      if (tlPosLock !== null && bp.tl !== tlPosLock) continue;
-      if (dlPosLock !== null && bp.dl !== dlPosLock) continue;
-    }
-
-    // ③ Exact position filters
-    let posOk = true;
-    for (let i = 0; i < 5; i++)
-      if (posFilters[i] && word[i] !== posFilters[i]) { posOk = false; break; }
-    if (!posOk) continue;
-
-    // ④ Must-include
-    if (mustIncArr.some(ch => !word.includes(ch))) continue;
-
-    // ⑤ Blocked / must-exclude
-    if ([...word].some(ch => blockedSet.has(ch))) continue;
-
-    matched.push(word);
-  }
-
-  matched.sort((a, b) => wordPriority(a) - wordPriority(b));
-
-  // Group by sorted letter-value pattern
-  const groupMap = new Map();
-  for (const word of matched) {
-    const pat = letterPattern(word);
-    if (!groupMap.has(pat)) groupMap.set(pat, []);
-    groupMap.get(pat).push({ word, bonus: bonusPositions(word) });
-  }
-
-  const groups = Array.from(groupMap.entries())
-    .map(([pattern, words]) => ({ pattern, words }))
-    .sort((a, b) => b.words.length - a.words.length);
-
-  const starters = computeStarters(matched);
-
-  res.json({ total: matched.length, groups, starters });
+app.get('/api/employees', (req, res) => {
+  const rows = db.prepare('SELECT * FROM employees WHERE active = 1 ORDER BY name').all();
+  res.json(rows);
 });
 
-// ─── /api/patterns — list valid breakdowns for a score ────────────────────────
-app.get('/api/patterns', (req, res) => {
-  const target = parseInt(req.query.score);
-  const patterns = VALID_PATTERNS.get(target);
-  res.json({ patterns: patterns ? [...patterns].sort() : [] });
+app.get('/api/cost-codes', (req, res) => {
+  const rows = db.prepare('SELECT * FROM cost_codes ORDER BY code').all();
+  res.json(rows);
 });
 
-// ─── WWF Board Solver ─────────────────────────────────────────────────────────
+app.get('/api/pay-period/current', (req, res) => {
+  const { date } = req.query;
+  res.json(getPayPeriod(date));
+});
 
-const WWF_BONUS_MAP = (function () {
-  const m = Array.from({ length: 15 }, () => new Array(15).fill(''));
-  [[0,3],[0,11],[3,0],[3,14],[11,0],[11,14],[14,3],[14,11]].forEach(([r,c]) => { m[r][c] = 'TW'; });
-  [[1,1],[1,13],[2,2],[2,12],[3,7],[4,4],[4,10],[7,3],[7,7],[7,11],[10,4],[10,10],[11,7],[12,2],[12,12],[13,1],[13,13]].forEach(([r,c]) => { m[r][c] = 'DW'; });
-  [[1,5],[1,9],[3,3],[3,11],[5,1],[5,5],[5,9],[5,13],[9,1],[9,5],[9,9],[9,13],[11,3],[11,11],[13,5],[13,9]].forEach(([r,c]) => { m[r][c] = 'TL'; });
-  [[0,6],[0,8],[2,6],[2,8],[6,0],[6,2],[6,6],[6,8],[6,12],[6,14],[8,0],[8,2],[8,6],[8,8],[8,12],[8,14],[12,6],[12,8],[14,6],[14,8]].forEach(([r,c]) => { m[r][c] = 'DL'; });
-  return m;
-})();
+// Get or create timecard for employee + pay period
+app.get('/api/timecards', (req, res) => {
+  const { employee_id, pay_period_start } = req.query;
+  if (!employee_id || !pay_period_start) return res.status(400).json({ error: 'Missing params' });
 
-let _boardCache = null;
-function getBoardCache() {
-  if (_boardCache) return _boardCache;
-  let db;
-  try { db = new Database(path.join(__dirname, 'board.db'), { readonly: true }); }
-  catch (e) {
-    console.warn('board.db not found — run: npm run board-setup');
-    _boardCache = { wordSet: new Set(), charIdx: new Map(), wordsByLen: new Map() };
-    return _boardCache;
-  }
-  const words = db.prepare('SELECT word FROM words').all().map(r => r.word.toUpperCase());
-  db.close();
-  const wordSet = new Set(words);
-  const charIdx = new Map();
-  const wordsByLen = new Map();
-  for (const word of words) {
-    const L = word.length;
-    if (!wordsByLen.has(L)) wordsByLen.set(L, []);
-    wordsByLen.get(L).push(word);
-    if (!charIdx.has(L)) charIdx.set(L, Array.from({ length: L }, () => new Map()));
-    const pa = charIdx.get(L);
-    for (let i = 0; i < L; i++) {
-      const ch = word[i];
-      if (!pa[i].has(ch)) pa[i].set(ch, []);
-      pa[i].get(ch).push(word);
-    }
-  }
-  _boardCache = { wordSet, charIdx, wordsByLen };
-  console.log(`Board cache: ${words.length} words loaded`);
-  return _boardCache;
-}
+  let tc = db.prepare('SELECT * FROM timecards WHERE employee_id = ? AND pay_period_start = ?')
+    .get(employee_id, pay_period_start);
 
-// Find word candidates whose letters match a fixed-char pattern
-function boardCandidates(cache, seg) {
-  const { charIdx, wordsByLen } = cache;
-  const L = seg.length;
-  const fixed = seg.map((ch, i) => ch ? { i, ch } : null).filter(Boolean);
-  if (fixed.length === 0) return wordsByLen.get(L) || [];
-  const pa = charIdx.get(L);
-  if (!pa) return [];
-  fixed.sort((a, b) => (pa[a.i].get(a.ch)?.length ?? 1e9) - (pa[b.i].get(b.ch)?.length ?? 1e9));
-  const base = pa[fixed[0].i].get(fixed[0].ch);
-  if (!base) return [];
-  if (fixed.length === 1) return base;
-  return base.filter(w => {
-    for (let k = 1; k < fixed.length; k++) if (w[fixed[k].i] !== fixed[k].ch) return false;
-    return true;
-  });
-}
-
-// Check if rack can supply needed letters (? = blank)
-function rackHas(rack, needed) {
-  const r = [...rack];
-  for (const ch of needed) {
-    const i = r.indexOf(ch);
-    if (i !== -1) { r.splice(i, 1); continue; }
-    const b = r.indexOf('?');
-    if (b !== -1) { r.splice(b, 1); continue; }
-    return false;
-  }
-  return true;
-}
-
-// Returns Set of indices into `needed` where a blank tile is used
-function blankAssign(rack, needed) {
-  const r = [...rack];
-  const blanks = new Set();
-  for (let j = 0; j < needed.length; j++) {
-    const i = r.indexOf(needed[j]);
-    if (i !== -1) { r.splice(i, 1); continue; }
-    r.splice(r.indexOf('?'), 1);
-    blanks.add(j);
-  }
-  return blanks;
-}
-
-// Get cross-word string when placing letter at (r,c); crossVert=true = vertical cross
-function crossWordAt(board, r, c, letter, crossVert) {
-  if (crossVert) {
-    let r0 = r; while (r0 > 0 && board[r0 - 1][c]) r0--;
-    let r1 = r; while (r1 < 14 && board[r1 + 1][c]) r1++;
-    if (r0 === r1) return null;
-    let w = ''; for (let rr = r0; rr <= r1; rr++) w += rr === r ? letter : board[rr][c]; return w;
-  } else {
-    let c0 = c; while (c0 > 0 && board[r][c0 - 1]) c0--;
-    let c1 = c; while (c1 < 14 && board[r][c1 + 1]) c1++;
-    if (c0 === c1) return null;
-    let w = ''; for (let cc = c0; cc <= c1; cc++) w += cc === c ? letter : board[r][cc]; return w;
-  }
-}
-
-function calcBoardScore(word, startR, startC, isVert, board, rack) {
-  // Identify new tile positions and which use blanks
-  const newIdx = [], needed = [];
-  for (let i = 0; i < word.length; i++) {
-    const r = isVert ? startR + i : startR, c = isVert ? startC : startC + i;
-    if (!board[r][c]) { newIdx.push(i); needed.push(word[i]); }
-  }
-  const blankJs = blankAssign(rack, needed);
-  const wordBlanks = new Set(newIdx.filter((_, j) => blankJs.has(j)));
-  const newSet = new Set(newIdx);
-
-  // Main word score
-  let mSum = 0, mMult = 1;
-  for (let i = 0; i < word.length; i++) {
-    const r = isVert ? startR + i : startR, c = isVert ? startC : startC + i;
-    const v = wordBlanks.has(i) ? 0 : lv(word[i]);
-    if (newSet.has(i)) {
-      const b = WWF_BONUS_MAP[r][c];
-      mSum += b === 'TL' ? v * 3 : b === 'DL' ? v * 2 : v;
-      if (b === 'TW') mMult *= 3; else if (b === 'DW') mMult *= 2;
-    } else { mSum += lv(word[i]); }
-  }
-  let total = mSum * mMult;
-
-  // Cross-word scores for each new tile
-  for (let j = 0; j < newIdx.length; j++) {
-    const i = newIdx[j];
-    const r = isVert ? startR + i : startR, c = isVert ? startC : startC + i;
-    const v = wordBlanks.has(i) ? 0 : lv(word[i]);
-    const b = WWF_BONUS_MAP[r][c];
-    const hasCross = isVert
-      ? (c > 0 && board[r][c - 1]) || (c < 14 && board[r][c + 1])
-      : (r > 0 && board[r - 1][c]) || (r < 14 && board[r + 1][c]);
-    if (!hasCross) continue;
-    let cSum = 0, cMult = 1;
-    if (isVert) {
-      let c0 = c; while (c0 > 0 && board[r][c0 - 1]) c0--;
-      let c1 = c; while (c1 < 14 && board[r][c1 + 1]) c1++;
-      for (let cc = c0; cc <= c1; cc++) {
-        if (cc === c) { cSum += b === 'TL' ? v * 3 : b === 'DL' ? v * 2 : v; if (b === 'TW') cMult *= 3; else if (b === 'DW') cMult *= 2; }
-        else cSum += lv(board[r][cc]);
-      }
-    } else {
-      let r0 = r; while (r0 > 0 && board[r0 - 1][c]) r0--;
-      let r1 = r; while (r1 < 14 && board[r1 + 1][c]) r1++;
-      for (let rr = r0; rr <= r1; rr++) {
-        if (rr === r) { cSum += b === 'TL' ? v * 3 : b === 'DL' ? v * 2 : v; if (b === 'TW') cMult *= 3; else if (b === 'DW') cMult *= 2; }
-        else cSum += lv(board[rr][c]);
-      }
-    }
-    total += cSum * cMult;
-  }
-  if (newIdx.length === 7) total += 35; // bingo bonus
-  return total;
-}
-
-function findAllPlays(board, rack) {
-  const cache = getBoardCache();
-  if (cache.wordSet.size === 0)
-    throw new Error('Board dictionary not loaded — run: npm run board-setup');
-  const { wordSet } = cache;
-  const plays = [];
-
-  let isEmpty = true;
-  outer: for (let r = 0; r < 15; r++) for (let c = 0; c < 15; c++) if (board[r][c]) { isEmpty = false; break outer; }
-
-  for (const isVert of [false, true]) {
-    for (let lineIdx = 0; lineIdx < 15; lineIdx++) {
-      const line = [];
-      for (let i = 0; i < 15; i++) line.push(isVert ? board[i][lineIdx] : board[lineIdx][i]);
-
-      for (let start = 0; start < 15; start++) {
-        if (start > 0 && line[start - 1]) continue; // tile before start — invalid boundary
-
-        for (let len = 2; start + len <= 15; len++) {
-          const end = start + len - 1;
-          if (end + 1 < 15 && line[end + 1]) continue; // tile after end — try longer
-
-          const seg = line.slice(start, start + len);
-          let existCnt = 0;
-          const newPos = [];
-          for (let i = 0; i < len; i++) { if (seg[i]) existCnt++; else newPos.push(i); }
-          if (newPos.length === 0 || newPos.length > rack.length) continue;
-
-          // Connectivity check
-          if (isEmpty) {
-            let cc = false;
-            for (let i = 0; i < len; i++) {
-              const r = isVert ? start + i : lineIdx, c = isVert ? lineIdx : start + i;
-              if (r === 7 && c === 7) { cc = true; break; }
-            }
-            if (!cc) continue;
-          } else if (existCnt === 0) {
-            let conn = false;
-            for (const i of newPos) {
-              const r = isVert ? start + i : lineIdx, c = isVert ? lineIdx : start + i;
-              const hp = isVert
-                ? (c > 0 && board[r][c - 1]) || (c < 14 && board[r][c + 1])
-                : (r > 0 && board[r - 1][c]) || (r < 14 && board[r + 1][c]);
-              if (hp) { conn = true; break; }
-            }
-            if (!conn) continue;
-          }
-
-          for (const word of boardCandidates(cache, seg)) {
-            const needed = newPos.map(i => word[i]);
-            if (!rackHas(rack, needed)) continue;
-
-            let crossOk = true;
-            for (const i of newPos) {
-              const r = isVert ? start + i : lineIdx, c = isVert ? lineIdx : start + i;
-              const cw = crossWordAt(board, r, c, word[i], !isVert);
-              if (cw && !wordSet.has(cw)) { crossOk = false; break; }
-            }
-            if (!crossOk) continue;
-
-            const startR = isVert ? start : lineIdx, startC = isVert ? lineIdx : start;
-            plays.push({
-              word, row: startR, col: startC, isVert,
-              score: calcBoardScore(word, startR, startC, isVert, board, rack)
-            });
-          }
-        }
-      }
-    }
+  if (!tc) {
+    const { start, end } = getPayPeriod(pay_period_start);
+    const result = db.prepare(
+      'INSERT INTO timecards (employee_id, pay_period_start, pay_period_end) VALUES (?, ?, ?)'
+    ).run(employee_id, start, end);
+    tc = db.prepare('SELECT * FROM timecards WHERE id = ?').get(result.lastInsertRowid);
   }
 
-  plays.sort((a, b) => b.score - a.score || a.word.length - b.word.length);
-  return plays;
-}
+  const entries = db.prepare('SELECT * FROM timecard_entries WHERE timecard_id = ? ORDER BY row_order').all(tc.id);
+  res.json({ timecard: tc, entries });
+});
 
-app.post('/api/board-solve', (req, res) => {
-  const { board, rack } = req.body || {};
-  if (!Array.isArray(board) || board.length !== 15 || !Array.isArray(rack))
-    return res.json({ error: 'board (15×15 array) and rack (array) required' });
+// Save timecard entries (replace all)
+app.post('/api/timecards/:id/entries', (req, res) => {
+  const { id } = req.params;
+  const { entries } = req.body;
 
-  const nb = board.map(row => {
-    const r = Array.isArray(row) ? row : [];
-    return Array.from({ length: 15 }, (_, i) => {
-      const ch = (r[i] || '').toString().toUpperCase().trim();
-      return /^[A-Z]$/.test(ch) ? ch : '';
+  const tc = db.prepare('SELECT * FROM timecards WHERE id = ?').get(id);
+  if (!tc) return res.status(404).json({ error: 'Timecard not found' });
+  if (tc.status === 'submitted') return res.status(400).json({ error: 'Timecard already submitted' });
+
+  db.prepare('DELETE FROM timecard_entries WHERE timecard_id = ?').run(id);
+
+  const insert = db.prepare(`
+    INSERT INTO timecard_entries
+      (timecard_id, row_order, job_number, area, cost_code_id,
+       d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,d13,d14)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `);
+
+  const saveAll = db.transaction((rows) => {
+    rows.forEach((row, i) => {
+      insert.run(
+        id, i,
+        row.job_number || null,
+        row.area || null,
+        row.cost_code_id || null,
+        ...[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(n => Number(row[`d${n}`]) || 0)
+      );
     });
   });
-  while (nb.length < 15) nb.push(new Array(15).fill(''));
+  saveAll(entries);
 
-  const nr = rack
-    .map(c => { const ch = (c || '').toString().toUpperCase().trim(); return ch === '?' ? '?' : /^[A-Z]$/.test(ch) ? ch : null; })
-    .filter(Boolean);
-  if (nr.length === 0) return res.json({ error: 'rack is empty' });
+  res.json({ success: true });
+});
 
+app.post('/api/timecards/:id/submit', (req, res) => {
+  const { id } = req.params;
+  db.prepare("UPDATE timecards SET status='submitted', submitted_at=datetime('now') WHERE id=?").run(id);
+  res.json({ success: true });
+});
+
+app.patch('/api/timecards/:id', (req, res) => {
+  const { id } = req.params;
+  const { notes } = req.body;
+  db.prepare('UPDATE timecards SET notes=? WHERE id=?').run(notes, id);
+  res.json({ success: true });
+});
+
+// Admin – list all timecards
+app.get('/api/admin/timecards', (req, res) => {
+  const { pin } = req.query;
+  if (pin !== (process.env.ADMIN_PIN || '1234')) return res.status(403).json({ error: 'Invalid PIN' });
+
+  const rows = db.prepare(`
+    SELECT t.*, e.name as employee_name
+    FROM timecards t
+    JOIN employees e ON t.employee_id = e.id
+    ORDER BY t.pay_period_start DESC, e.name
+  `).all();
+  res.json(rows);
+});
+
+app.get('/api/admin/timecards/:id', (req, res) => {
+  const { pin } = req.query;
+  if (pin !== (process.env.ADMIN_PIN || '1234')) return res.status(403).json({ error: 'Invalid PIN' });
+
+  const tc = db.prepare(`
+    SELECT t.*, e.name as employee_name, e.email as employee_email
+    FROM timecards t JOIN employees e ON t.employee_id = e.id
+    WHERE t.id = ?
+  `).get(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Not found' });
+
+  const entries = db.prepare(`
+    SELECT te.*, cc.code as cc_code, cc.description as cc_desc, cc.category as cc_cat
+    FROM timecard_entries te
+    LEFT JOIN cost_codes cc ON te.cost_code_id = cc.id
+    WHERE te.timecard_id = ?
+    ORDER BY te.row_order
+  `).all(tc.id);
+
+  res.json({ timecard: tc, entries });
+});
+
+// ─── PDF Generation ─────────────────────────────────────────────────────────
+
+function buildPDF(tc, entries, dayLabels) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'LETTER', layout: 'landscape', margin: 30 });
+    const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const pageW = 792;
+    const margin = 30;
+    const W = pageW - margin * 2;
+    const blue = '#1E3A5F';
+
+    // Header bar
+    doc.rect(0, 0, pageW, 70).fill(blue);
+    doc.fillColor('white').fontSize(22).font('Helvetica-Bold').text('ALLAN', margin, 12);
+    doc.fontSize(10).font('Helvetica').text('CONSTRUCTION', margin, 36);
+    doc.fontSize(13).font('Helvetica-Bold').text('EMPLOYEE TIME CARD', margin + 110, 22);
+
+    const emp = tc.employee_name || 'Unknown';
+    doc.fontSize(9).font('Helvetica').fillColor('white')
+      .text(`Employee: ${emp}`, 450, 15)
+      .text(`Pay Period: ${formatDate(tc.pay_period_start)} – ${formatDate(tc.pay_period_end)}`, 450, 28)
+      .text(`Status: ${tc.status.toUpperCase()}`, 450, 41)
+      .text(`Submitted: ${tc.submitted_at ? new Date(tc.submitted_at).toLocaleDateString() : '—'}`, 450, 54);
+
+    // Table layout
+    const tableY = 80;
+    const rowH = 16;
+    const colJob = 75, colArea = 65, colCC = 110, colTot = 36;
+    const availForDays = W - colJob - colArea - colCC - colTot;
+    const dayW = Math.floor(availForDays / 14);
+
+    // Header row
+    doc.fillColor(blue).rect(margin, tableY, W, rowH + 4).fill();
+    doc.fillColor('white').fontSize(6.5).font('Helvetica-Bold');
+    let cx = margin;
+    doc.text('JOB #', cx + 2, tableY + 4, { width: colJob - 4, align: 'left' }); cx += colJob;
+    doc.text('AREA', cx + 2, tableY + 4, { width: colArea - 4 }); cx += colArea;
+    doc.text('COST CODE', cx + 2, tableY + 4, { width: colCC - 4 }); cx += colCC;
+
+    // Week labels above day headers
+    const wk1Color = '#2563EB', wk2Color = '#B45309';
+    dayLabels.forEach((d, i) => {
+      const col = i < 7 ? wk1Color : wk2Color;
+      doc.fillColor(col).fontSize(6).font('Helvetica-Bold')
+        .text(d.short.toUpperCase(), cx + 1, tableY + 2, { width: dayW - 2, align: 'center' });
+      doc.fontSize(5).text(d.date.slice(5), cx + 1, tableY + 9, { width: dayW - 2, align: 'center' });
+      cx += dayW;
+    });
+    doc.fillColor('white').fontSize(6.5).font('Helvetica-Bold')
+      .text('TOTAL', cx + 1, tableY + 4, { width: colTot - 2, align: 'center' });
+
+    // Data rows
+    let ry = tableY + rowH + 4;
+    entries.forEach((row, ri) => {
+      const bg = ri % 2 === 0 ? '#FFFFFF' : '#F3F4F6';
+      doc.fillColor(bg).rect(margin, ry, W, rowH).fill();
+      doc.strokeColor('#D1D5DB').lineWidth(0.5).rect(margin, ry, W, rowH).stroke();
+
+      doc.fillColor('#111827').fontSize(6.5).font('Helvetica');
+      cx = margin;
+      doc.text(row.job_number || '', cx + 2, ry + 4, { width: colJob - 4 }); cx += colJob;
+      doc.text(row.area || '', cx + 2, ry + 4, { width: colArea - 4 }); cx += colArea;
+      doc.text(row.cc_code ? `${row.cc_code}` : '', cx + 2, ry + 4, { width: colCC - 4, lineBreak: false }); cx += colCC;
+
+      let rowTotal = 0;
+      for (let d = 1; d <= 14; d++) {
+        const hrs = Number(row[`d${d}`]) || 0;
+        rowTotal += hrs;
+        const dayBg = d <= 7 ? '#EFF6FF' : '#FFFBEB';
+        doc.fillColor(dayBg).rect(cx, ry, dayW, rowH).fill();
+        doc.strokeColor('#D1D5DB').lineWidth(0.3).rect(cx, ry, dayW, rowH).stroke();
+        if (hrs > 0) doc.fillColor('#111827').text(String(hrs), cx + 1, ry + 4, { width: dayW - 2, align: 'center' });
+        cx += dayW;
+      }
+      doc.fillColor('#1E3A5F').font('Helvetica-Bold')
+        .text(rowTotal > 0 ? String(rowTotal) : '', cx + 1, ry + 4, { width: colTot - 2, align: 'center' });
+      ry += rowH;
+    });
+
+    // Totals footer row
+    doc.fillColor(blue).rect(margin, ry, W, rowH).fill();
+    doc.fillColor('white').fontSize(6.5).font('Helvetica-Bold')
+      .text('DAILY TOTALS', margin + 2, ry + 4, { width: colJob + colArea + colCC - 4 });
+    cx = margin + colJob + colArea + colCC;
+    let grand = 0;
+    for (let d = 1; d <= 14; d++) {
+      const dt = entries.reduce((s, r) => s + (Number(r[`d${d}`]) || 0), 0);
+      grand += dt;
+      if (dt > 0) doc.text(String(dt), cx + 1, ry + 4, { width: dayW - 2, align: 'center' });
+      cx += dayW;
+    }
+    doc.text(String(grand), cx + 1, ry + 4, { width: colTot - 2, align: 'center' });
+
+    // Notes
+    if (tc.notes) {
+      doc.fillColor('#374151').fontSize(8).font('Helvetica')
+        .text(`Notes: ${tc.notes}`, margin, ry + rowH + 6);
+    }
+
+    doc.fillColor('#9CA3AF').fontSize(7).text(
+      `Generated ${new Date().toLocaleString()} | Allan Construction Timecard System`,
+      margin, 590
+    );
+
+    doc.end();
+  });
+}
+
+app.get('/api/timecards/:id/pdf', async (req, res) => {
+  const tc = db.prepare(`
+    SELECT t.*, e.name as employee_name, e.email as employee_email
+    FROM timecards t JOIN employees e ON t.employee_id = e.id WHERE t.id = ?
+  `).get(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Not found' });
+
+  const entries = db.prepare(`
+    SELECT te.*, cc.code as cc_code, cc.description as cc_desc
+    FROM timecard_entries te
+    LEFT JOIN cost_codes cc ON te.cost_code_id = cc.id
+    WHERE te.timecard_id = ? ORDER BY te.row_order
+  `).all(tc.id);
+
+  const dayLabels = getDayLabels(tc.pay_period_start);
   try {
-    const plays = findAllPlays(nb, nr);
-    return res.json({ total: plays.length, plays: plays.slice(0, 500) });
-  } catch (e) {
-    console.error('board-solve:', e.message);
-    return res.json({ error: e.message });
+    const pdf = await buildPDF(tc, entries, dayLabels);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="timecard-${tc.id}.pdf"`,
+    });
+    res.send(pdf);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'PDF generation failed' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Grok Guess Word — http://localhost:${PORT}`);
-  allWords(); // preload word cache on startup
-  try { getBoardCache(); } catch (e) { /* board.db optional at startup */ }
+app.post('/api/timecards/:id/email', async (req, res) => {
+  const { to } = req.body;
+  const tc = db.prepare(`
+    SELECT t.*, e.name as employee_name, e.email as employee_email
+    FROM timecards t JOIN employees e ON t.employee_id = e.id WHERE t.id = ?
+  `).get(req.params.id);
+  if (!tc) return res.status(404).json({ error: 'Not found' });
+
+  const entries = db.prepare(`
+    SELECT te.*, cc.code as cc_code, cc.description as cc_desc
+    FROM timecard_entries te
+    LEFT JOIN cost_codes cc ON te.cost_code_id = cc.id
+    WHERE te.timecard_id = ? ORDER BY te.row_order
+  `).all(tc.id);
+
+  const dayLabels = getDayLabels(tc.pay_period_start);
+  try {
+    const pdf = await buildPDF(tc, entries, dayLabels);
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: { user: process.env.SMTP_USER || '', pass: process.env.SMTP_PASS || '' },
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'timecards@allanconstruction.com',
+      to: to || tc.employee_email,
+      subject: `Time Card – ${tc.employee_name} – ${tc.pay_period_start} to ${tc.pay_period_end}`,
+      text: `Attached is the timecard for ${tc.employee_name}, pay period ${formatDate(tc.pay_period_start)} – ${formatDate(tc.pay_period_end)}.`,
+      attachments: [{ filename: `timecard-${tc.id}.pdf`, content: pdf, contentType: 'application/pdf' }],
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+// SPA fallback
+app.get('*', (req, res) => {
+  const indexPath = path.join(__dirname, 'client', 'dist', 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.send('<h2>Run <code>npm run build-client</code> to build the frontend.</h2>');
+  }
+});
+
+app.listen(PORT, () => console.log(`Allan Construction Timecard running on http://localhost:${PORT}`));

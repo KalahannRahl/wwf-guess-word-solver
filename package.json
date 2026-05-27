@@ -1,22 +1,24 @@
 {
-  "name": "grok-guess-word",
+  "name": "allan-construction-timecard",
   "version": "1.0.0",
-  "description": "Words With Friends 5-letter word solver",
+  "description": "Allan Construction Employee Timecard App",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "setup": "node setup-db.js && node seed-db.js",
-    "board-setup": "node setup-board.js && node seed-board.js"
+    "dev": "node server.js",
+    "setup": "node setup-timecard-db.js",
+    "client": "cd client && npm run dev",
+    "build-client": "cd client && npm run build"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^12.10.0",
-    "express": "^5.2.1"
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.9",
+    "pdfkit": "^0.15.0"
   }
 }
