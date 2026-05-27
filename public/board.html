@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>WWF Board Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --surface2: #1a2235;
+  --accent: #00d4ff;
+  --accent2: #7c3aed;
+  --accent3: #f59e0b;
+  --green: #10b981;
+  --red: #ef4444;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --border: #1e3a5f;
+  --glow: 0 0 20px rgba(0,212,255,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 10%, rgba(0,212,255,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(124,58,237,0.07) 0%, transparent 50%);
+}
+.stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+.stars::before, .stars::after {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 35% 42%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 58% 25%, rgba(255,255,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 76% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(2px 2px at 84% 15%, rgba(0,212,255,0.4) 0%, transparent 100%),
+    radial-gradient(2px 2px at 44% 65%, rgba(124,58,237,0.3) 0%, transparent 100%);
+}
+.stars::after {
+  background-image:
+    radial-gradient(1px 1px at 8% 55%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 85%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 66% 50%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(2px 2px at 34% 20%, rgba(0,212,255,0.3) 0%, transparent 100%),
+    radial-gradient(2px 2px at 74% 70%, rgba(245,158,11,0.3) 0%, transparent 100%);
+}
+.container { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; padding: 10px 12px 40px; }
+
+/* ── Header ── */
+header { text-align: center; padding: 16px 0 10px; }
+.nav-row { display: flex; justify-content: flex-start; margin-bottom: 8px; }
+.nav-link {
+  font-family: 'Orbitron', sans-serif; font-size: 0.55rem; letter-spacing: 0.12em;
+  color: var(--muted); text-decoration: none; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 14px; border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.nav-link:hover { color: var(--accent); border-color: var(--accent); }
+.logo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.1rem, 4.5vw, 1.8rem);
+  font-weight: 900; letter-spacing: 0.05em;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent3) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 0 16px rgba(0,212,255,0.5));
+}
+.subtitle { color: var(--muted); font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
+
+/* ── Card ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.card-title {
+  font-family: 'Orbitron', sans-serif; font-size: 0.58rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(to right, var(--accent), transparent); opacity: 0.3; }
+
+/* ── Board Grid ── */
+.board-wrap {
+  width: 100%;
+  user-select: none;
+}
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  gap: 1.5px;
+  background: #0a0e1a;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bc {
+  aspect-ratio: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  cursor: default;
+  position: relative;
+  transition: filter 0.08s, box-shadow 0.08s;
+  min-width: 0; overflow: hidden;
+  background: #182030;
+}
+/* Bonus square backgrounds */
+.bc.btw { background: #7f1d1d; }
+.bc.bdw { background: #7c2d12; }
+.bc.btl { background: #1e3a8a; }
+.bc.bdl { background: #0c4a6e; }
+/* Occupied tile */
+.bc.occ { background: #e8d5a3; cursor: pointer; }
+.bc.occ .bl { color: #1a0a00; font-weight: 900; font-size: clamp(7px, 2vw, 14px); line-height: 1; }
+.bc.occ .bv { position: absolute; bottom: 1px; right: 2px; font-size: clamp(4px, 0.9vw, 6px); color: #6b5c3e; font-family: 'Share Tech Mono', monospace; }
+/* Empty cell bonus label */
+.bb {
+  font-size: clamp(3px, 0.75vw, 6px);
+  color: rgba(255,255,255,0.45); font-weight: 700; letter-spacing: -0.05em;
+  text-align: center; line-height: 1.1; pointer-events: none;
+}
+/* Edit mode: pointer cursor and hover glow */
+.edit-active .bc:not(.occ):hover { background: rgba(0,212,255,0.15); }
+.edit-active .bc.occ:hover { filter: brightness(1.15); }
+/* Highlight states */
+.bc.hl-new {
+  background: rgba(0,212,255,0.7) !important;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  z-index: 5;
+}
+.bc.hl-new .bl { color: #001a24 !important; }
+.bc.hl-use {
+  box-shadow: inset 0 0 0 1.5px var(--accent2) !important;
+  filter: brightness(1.3);
+}
+
+/* Edit controls row */
+.edit-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.edit-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--muted); padding: 6px 12px; cursor: pointer; transition: all 0.15s;
+}
+.edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+.edit-btn.active { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.08); }
+.edit-hint { font-size: 0.6rem; color: var(--muted); }
+
+/* ── OCR Panel ── */
+.upload-btn {
+  display: inline-block; font-family: 'Orbitron', sans-serif; font-size: 0.58rem;
+  font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  border: none; border-radius: 8px; color: white; padding: 9px 16px;
+  cursor: pointer; transition: opacity 0.2s; box-shadow: 0 0 16px rgba(124,58,237,0.3);
+}
+.upload-btn:hover { opacity: 0.88; }
+.ocr-top-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+#crop-panel { margin-top: 10px; }
+#preview-canvas {
+  width: 100%; border-radius: 6px; border: 1px solid var(--border);
+  cursor: crosshair; display: block; margin-bottom: 10px;
+}
+.slider-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 10px;
+}
+.slider-row { display: flex; flex-direction: column; gap: 3px; }
+.slider-label { font-size: 0.58rem; color: var(--muted); display: flex; justify-content: space-between; }
+input[type="range"] {
+  width: 100%; accent-color: var(--accent); height: 4px;
+}
+.ocr-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: rgba(0,212,255,0.1); border: 1px solid var(--accent); border-radius: 8px;
+  color: var(--accent); padding: 8px 16px; cursor: pointer; transition: all 0.2s; width: 100%;
+}
+.ocr-btn:hover { background: rgba(0,212,255,0.2); box-shadow: var(--glow); }
+.ocr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+#ocr-status { font-size: 0.62rem; color: var(--muted); text-align: center; margin-top: 6px; min-height: 16px; }
+
+/* ── Rack ── */
+.rack-hint { font-size: 0.62rem; color: var(--muted); margin-bottom: 10px; }
+.rack-row { display: flex; gap: 6px; justify-content: center; }
+.rack-box { flex: 1; max-width: 52px; }
+.rack-input {
+  width: 100%; aspect-ratio: 0.85; text-align: center; text-transform: uppercase;
+  background: #e8d5a3; border: 2px solid #8b7355; border-radius: 5px;
+  color: #1a0a00; font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: clamp(14px, 4vw, 22px); outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  display: block; padding: 0;
+}
+.rack-input::placeholder { color: #b8a88e; font-size: 0.6rem; font-weight: 400; }
+.rack-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(0,212,255,0.4); }
+
+/* ── Solve button ── */
+.solve-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  border: none; border-radius: 10px; color: white; padding: 14px 20px;
+  cursor: pointer; width: 100%; margin: 8px 0;
+  transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 0 24px rgba(124,58,237,0.4);
+}
+.solve-btn:hover { opacity: 0.9; box-shadow: 0 0 32px rgba(0,212,255,0.5); }
+.solve-btn:active { transform: scale(0.97); }
+.solve-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── Results ── */
+.res-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+.res-count { font-size: 0.65rem; color: var(--muted); }
+.res-count span { color: var(--accent); font-family: 'Orbitron', sans-serif; font-weight: 700; }
+.res-filter {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 0.68rem;
+  padding: 4px 8px; outline: none; width: 120px;
+}
+.res-filter::placeholder { color: var(--muted); }
+.res-filter:focus { border-color: var(--accent); }
+
+.results-list { display: flex; flex-direction: column; gap: 3px; max-height: 420px; overflow-y: auto; padding-right: 2px; }
+.results-list::-webkit-scrollbar { width: 3px; }
+.results-list::-webkit-scrollbar-track { background: var(--surface2); }
+.results-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.res-item {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 10px; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.res-item:hover { background: #1e2d45; border-color: var(--border); }
+.res-item.pinned { border-color: var(--accent2); background: rgba(124,58,237,0.1); }
+.res-score {
+  font-family: 'Orbitron', sans-serif; font-size: 0.88rem; font-weight: 700;
+  color: var(--accent3); min-width: 32px; text-align: right;
+}
+.res-word { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; flex: 1; }
+.res-word .nw { color: var(--accent); }
+.res-word .ew { color: var(--muted); }
+.res-pos { font-size: 0.58rem; color: var(--muted); white-space: nowrap; font-family: 'Share Tech Mono', monospace; }
+
+.no-results { text-align: center; padding: 30px 20px; color: var(--muted); }
+.no-results .icon { font-size: 2rem; margin-bottom: 8px; }
+.no-results .msg { font-size: 0.72rem; letter-spacing: 0.1em; }
+.loading { text-align: center; padding: 24px; color: var(--accent); font-family: 'Orbitron', sans-serif; font-size: 0.7rem; letter-spacing: 0.2em; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+.error-msg { color: var(--red); font-size: 0.72rem; text-align: center; padding: 16px; }
+
+/* ── Edit modal ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--accent); border-radius: 14px;
+  padding: 18px; text-align: center; box-shadow: var(--glow); min-width: 260px; max-width: 340px; width: 90vw;
+}
+.modal h3 { font-family: 'Orbitron', sans-serif; font-size: 0.68rem; color: var(--accent); letter-spacing: 0.2em; margin-bottom: 12px; text-transform: uppercase; }
+.modal-keys { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-bottom: 12px; }
+.mk {
+  width: 32px; height: 32px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; font-family: 'Orbitron', sans-serif; font-size: 0.7rem; font-weight: 700;
+  color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.mk:hover { border-color: var(--accent3); color: var(--accent3); }
+.modal-clear { font-size: 0.58rem; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 14px; cursor: pointer; font-family: 'Share Tech Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; transition: all 0.15s; }
+.modal-clear:hover { color: var(--red); border-color: var(--red); }
+</style>
+</head>
+<body>
+<div class="stars"></div>
+<div class="container">
+
+  <header>
+    <div class="nav-row">
+      <a href="/" class="nav-link">← Word Guess Solver</a>
+    </div>
+    <div class="logo">WWF BOARD SOLVER</div>
+    <div class="subtitle">Words With Friends · Full Board Solver</div>
+  </header>
+
+  <!-- OCR / Load Board -->
+  <div class="card">
+    <div class="card-title">📷 Load Board from Screenshot</div>
+    <div class="ocr-top-row">
+      <label class="upload-btn">
+        📂 Upload Screenshot
+        <input type="file" id="screenshot-input" accept="image/*" hidden>
+      </label>
+      <span style="font-size:0.62rem;color:var(--muted);">or edit the board manually below</span>
+    </div>
+    <div id="crop-panel" style="display:none">
+      <canvas id="preview-canvas"></canvas>
+      <div class="slider-grid">
+        <div class="slider-row">
+          <div class="slider-label"><span>Top</span><span id="tv">0</span>%</div>
+          <input type="range" id="ct" min="0" max="90" value="0" oninput="updateCrop(this,'tv')">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Bottom</span><span id="bv">100</span>%</div>
+          <input type="range" id="cb" min="10" max="100" value="100" oninput="updateCrop(this,'bv')">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Left</span><span id="lv">0</span>%</div>
+          <input type="range" id="cl" min="0" max="90" value="0" oninput="updateCrop(this,'lv')">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Right</span><span id="rv">100</span>%</div>
+          <input type="range" id="cr" min="10" max="100" value="100" oninput="updateCrop(this,'rv')">
+        </div>
+      </div>
+      <button class="ocr-btn" id="ocr-btn" onclick="runOCR()">📖 Read Board</button>
+      <div id="ocr-status"></div>
+    </div>
+  </div>
+
+  <!-- Board -->
+  <div class="card">
+    <div class="card-title">Board</div>
+    <div class="edit-row">
+      <button class="edit-btn" id="edit-toggle" onclick="toggleEdit()">✏️ Edit Mode</button>
+      <button class="edit-btn" onclick="clearBoard()" style="border-color:rgba(239,68,68,0.4);color:var(--red);">🗑 Clear</button>
+      <span class="edit-hint" id="edit-hint"></span>
+    </div>
+    <div class="board-wrap">
+      <div class="board-grid" id="board-grid"></div>
+    </div>
+  </div>
+
+  <!-- Rack -->
+  <div class="card">
+    <div class="card-title">Your Tiles</div>
+    <div class="rack-hint">Up to 7 tiles — use <strong>?</strong> for a blank tile</div>
+    <div class="rack-row" id="rack-row"></div>
+  </div>
+
+  <!-- Solve -->
+  <button class="solve-btn" id="solve-btn" onclick="findPlays()">▶ Find All Plays</button>
+
+  <!-- Results -->
+  <div class="card" id="results-card" style="display:none">
+    <div class="card-title" id="res-title">Results</div>
+    <div class="res-header">
+      <div class="res-count" id="res-count"></div>
+      <input class="res-filter" id="res-filter" placeholder="filter word…" oninput="filterResults()">
+    </div>
+    <div id="results-area"></div>
+  </div>
+
+</div>
+
+<!-- Edit modal -->
+<div class="modal-overlay" id="edit-modal" onclick="onModalOverlayClick(event)">
+  <div class="modal">
+    <h3>Place Tile</h3>
+    <div class="modal-keys" id="modal-keys"></div>
+    <button class="modal-clear" onclick="clearCell()">✕ Remove Tile</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+// ── Constants ──
+const LV = {A:1,B:4,C:4,D:2,E:1,F:4,G:3,H:3,I:1,J:10,K:5,L:2,M:4,N:2,O:1,P:4,Q:10,R:1,S:1,T:1,U:2,V:5,W:4,X:8,Y:3,Z:10};
+
+const BONUS = (function() {
+  const m = Array.from({length:15}, ()=>new Array(15).fill(''));
+  [[0,3],[0,11],[3,0],[3,14],[11,0],[11,14],[14,3],[14,11]].forEach(([r,c])=>m[r][c]='TW');
+  [[1,1],[1,13],[2,2],[2,12],[3,7],[4,4],[4,10],[7,3],[7,7],[7,11],[10,4],[10,10],[11,7],[12,2],[12,12],[13,1],[13,13]].forEach(([r,c])=>m[r][c]='DW');
+  [[1,5],[1,9],[3,3],[3,11],[5,1],[5,5],[5,9],[5,13],[9,1],[9,5],[9,9],[9,13],[11,3],[11,11],[13,5],[13,9]].forEach(([r,c])=>m[r][c]='TL');
+  [[0,6],[0,8],[2,6],[2,8],[6,0],[6,2],[6,6],[6,8],[6,12],[6,14],[8,0],[8,2],[8,6],[8,8],[8,12],[8,14],[12,6],[12,8],[14,6],[14,8]].forEach(([r,c])=>m[r][c]='DL');
+  return m;
+})();
+
+const BONUS_CLS = { TW:'btw', DW:'bdw', TL:'btl', DL:'bdl' };
+const BONUS_LBL = { TW:'TW', DW:'DW', TL:'TL', DL:'DL' };
+
+// ── State ──
+let boardState = Array.from({length:15}, ()=>new Array(15).fill(''));
+let editMode = false;
+let selectedCell = null;   // {r, c}
+let uploadedImg = null;
+let allPlays = [];          // full play list from last solve
+let pinnedEl = null;        // currently pinned result item
+
+// ── Board rendering ──
+function initBoard() {
+  const grid = document.getElementById('board-grid');
+  grid.innerHTML = '';
+  for (let r = 0; r < 15; r++) {
+    for (let c = 0; c < 15; c++) {
+      const cell = document.createElement('div');
+      cell.id = `bc-${r}-${c}`;
+      cell.addEventListener('click', ()=>onCellClick(r,c));
+      grid.appendChild(cell);
+    }
+  }
+  renderBoard();
+}
+
+function renderBoard() {
+  const grid = document.getElementById('board-grid');
+  const inEdit = grid.classList.contains('edit-active');
+  for (let r = 0; r < 15; r++) {
+    for (let c = 0; c < 15; c++) {
+      const cell = document.getElementById(`bc-${r}-${c}`);
+      const letter = boardState[r][c];
+      const bonus = BONUS[r][c];
+      const isStar = (r===7&&c===7);
+      // Reset classes
+      cell.className = 'bc';
+      if (letter) {
+        cell.classList.add('occ');
+        cell.innerHTML = `<span class="bl">${letter}</span><span class="bv">${LV[letter]||0}</span>`;
+      } else {
+        if (bonus) cell.classList.add(BONUS_CLS[bonus]);
+        const lbl = isStar ? '★' : (bonus ? BONUS_LBL[bonus] : '');
+        cell.innerHTML = lbl ? `<span class="bb">${lbl}</span>` : '';
+      }
+    }
+  }
+}
+
+function setBoardLetter(r, c, letter) {
+  boardState[r][c] = letter;
+  const cell = document.getElementById(`bc-${r}-${c}`);
+  if (letter) {
+    cell.className = 'bc occ';
+    cell.innerHTML = `<span class="bl">${letter}</span><span class="bv">${LV[letter]||0}</span>`;
+  } else {
+    const bonus = BONUS[r][c];
+    const isStar = (r===7&&c===7);
+    cell.className = 'bc' + (bonus ? ` ${BONUS_CLS[bonus]}` : '');
+    const lbl = isStar ? '★' : (bonus ? BONUS_LBL[bonus] : '');
+    cell.innerHTML = lbl ? `<span class="bb">${lbl}</span>` : '';
+  }
+}
+
+// ── Edit mode ──
+function toggleEdit() {
+  editMode = !editMode;
+  const btn = document.getElementById('edit-toggle');
+  const hint = document.getElementById('edit-hint');
+  const grid = document.getElementById('board-grid');
+  btn.textContent = editMode ? '✅ Edit Active' : '✏️ Edit Mode';
+  btn.classList.toggle('active', editMode);
+  grid.classList.toggle('edit-active', editMode);
+  hint.textContent = editMode ? 'Tap any square to place or remove a tile' : '';
+}
+
+function onCellClick(r, c) {
+  if (!editMode) return;
+  selectedCell = {r, c};
+  openEditModal();
+}
+
+function openEditModal() {
+  const keys = document.getElementById('modal-keys');
+  keys.innerHTML = '';
+  for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')) {
+    const btn = document.createElement('button');
+    btn.className = 'mk';
+    btn.textContent = ch;
+    btn.onclick = () => { setBoardLetter(selectedCell.r, selectedCell.c, ch); closeEditModal(); };
+    keys.appendChild(btn);
+  }
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function clearCell() {
+  if (selectedCell) setBoardLetter(selectedCell.r, selectedCell.c, '');
+  closeEditModal();
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  selectedCell = null;
+}
+
+function onModalOverlayClick(e) {
+  if (e.target === document.getElementById('edit-modal')) closeEditModal();
+}
+
+function clearBoard() {
+  boardState = Array.from({length:15}, ()=>new Array(15).fill(''));
+  renderBoard();
+  document.getElementById('results-card').style.display = 'none';
+  clearHighlight();
+  pinnedEl = null;
+  allPlays = [];
+}
+
+// ── Rack ──
+function initRack() {
+  const row = document.getElementById('rack-row');
+  row.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const box = document.createElement('div');
+    box.className = 'rack-box';
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.maxLength = 1; inp.className = 'rack-input';
+    inp.id = `rk-${i}`; inp.placeholder = i===0?'A-Z':'';
+    inp.addEventListener('input', e => {
+      let v = e.target.value.replace(/[^a-zA-Z?]/g,'').toUpperCase().slice(-1);
+      e.target.value = v;
+      if (v && i < 6) document.getElementById(`rk-${i+1}`).focus();
+    });
+    inp.addEventListener('keydown', e => {
+      if (e.key==='Backspace' && !e.target.value && i>0) document.getElementById(`rk-${i-1}`).focus();
+    });
+    box.appendChild(inp); row.appendChild(box);
+  }
+}
+
+function getRack() {
+  const tiles = [];
+  for (let i = 0; i < 7; i++) {
+    const v = (document.getElementById(`rk-${i}`)?.value||'').toUpperCase();
+    if (v) tiles.push(v);
+  }
+  return tiles;
+}
+
+// ── OCR ──
+document.getElementById('screenshot-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    uploadedImg = new Image();
+    uploadedImg.onload = () => {
+      document.getElementById('crop-panel').style.display = '';
+      drawPreview();
+    };
+    uploadedImg.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function updateCrop(el, valId) {
+  document.getElementById(valId).textContent = el.value;
+  if (uploadedImg) drawPreview();
+}
+
+function getCropPct() {
+  return {
+    t: parseInt(document.getElementById('ct').value) / 100,
+    b: parseInt(document.getElementById('cb').value) / 100,
+    l: parseInt(document.getElementById('cl').value) / 100,
+    r: parseInt(document.getElementById('cr').value) / 100,
+  };
+}
+
+function drawPreview() {
+  const canvas = document.getElementById('preview-canvas');
+  const img = uploadedImg;
+  const maxW = canvas.parentElement.clientWidth - 2;
+  const scale = Math.min(1, maxW / img.width);
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(img.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const { t, b, l, r } = getCropPct();
+  const W = canvas.width, H = canvas.height;
+  // Darken outside crop
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, W, H);
+  // Redraw crop region
+  ctx.drawImage(img, l*img.width, t*img.height, (r-l)*img.width, (b-t)*img.height, l*W, t*H, (r-l)*W, (b-t)*H);
+  // Crop border
+  ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2;
+  ctx.strokeRect(l*W, t*H, (r-l)*W, (b-t)*H);
+  // Grid overlay
+  ctx.strokeStyle = 'rgba(0,212,255,0.25)'; ctx.lineWidth = 0.5;
+  const cw = (r-l)*W/15, ch = (b-t)*H/15;
+  for (let i = 1; i < 15; i++) {
+    ctx.beginPath(); ctx.moveTo(l*W+i*cw, t*H); ctx.lineTo(l*W+i*cw, b*H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(l*W, t*H+i*ch); ctx.lineTo(r*W, t*H+i*ch); ctx.stroke();
+  }
+}
+
+async function runOCR() {
+  if (!uploadedImg) return;
+  const statusEl = document.getElementById('ocr-status');
+  const btn = document.getElementById('ocr-btn');
+  btn.disabled = true; btn.textContent = '⏳ Reading…';
+  statusEl.textContent = 'Loading OCR engine (first run may take ~15s)…';
+
+  const { t, b, l, r } = getCropPct();
+  const cropW = Math.round((r-l) * uploadedImg.width);
+  const cropH = Math.round((b-t) * uploadedImg.height);
+  const cc = document.createElement('canvas');
+  cc.width = cropW; cc.height = cropH;
+  const cx = cc.getContext('2d');
+  cx.drawImage(uploadedImg, l*uploadedImg.width, t*uploadedImg.height, cropW, cropH, 0, 0, cropW, cropH);
+
+  // Preprocess: grayscale + boost contrast to help Tesseract
+  const id = cx.getImageData(0, 0, cropW, cropH);
+  const px = id.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const g = Math.round(0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]);
+    const e = g < 140 ? Math.max(0, g-50) : Math.min(255, g+50);
+    px[i] = px[i+1] = px[i+2] = e;
+  }
+  cx.putImageData(id, 0, 0);
+
+  try {
+    statusEl.textContent = 'Analyzing board tiles…';
+    const worker = await Tesseract.createWorker('eng', 1);
+    await worker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', tessedit_pageseg_mode: '6' });
+    const { data } = await worker.recognize(cc);
+    await worker.terminate();
+
+    // Collect all symbol bounding boxes
+    const syms = [];
+    const collectSymbols = (node) => {
+      if (!node) return;
+      if (node.symbols) node.symbols.forEach(s => syms.push(s));
+      if (node.words) node.words.forEach(w => { if (w.symbols) w.symbols.forEach(s => syms.push(s)); });
+      if (node.lines) node.lines.forEach(ln => collectSymbols(ln));
+      if (node.paragraphs) node.paragraphs.forEach(p => collectSymbols(p));
+      if (node.blocks) node.blocks.forEach(bl => collectSymbols(bl));
+    };
+    collectSymbols(data);
+    if (syms.length === 0 && data.words) data.words.forEach(w => { if (w.symbols) syms.push(...w.symbols); });
+    if (syms.length === 0 && data.text) {
+      // Fallback: parse raw text as 15×15 grid
+      const lines = data.text.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const nb = Array.from({length:15},()=>new Array(15).fill(''));
+      lines.slice(0,15).forEach((line, row) => {
+        line.replace(/[^A-Z]/gi,'').split('').slice(0,15).forEach((ch, col) => {
+          if (/[A-Z]/.test(ch)) nb[row][col] = ch.toUpperCase();
+        });
+      });
+      boardState = nb;
+      renderBoard();
+      statusEl.textContent = `Text fallback: check board and use Edit Mode to fix errors.`;
+    } else {
+      const cw2 = cropW / 15, ch2 = cropH / 15;
+      const nb = Array.from({length:15},()=>new Array(15).fill(''));
+      let placed = 0;
+      for (const s of syms) {
+        const ch = (s.text||'').toUpperCase().trim();
+        if (!/^[A-Z]$/.test(ch)) continue;
+        if ((s.confidence||0) < 20) continue;
+        const mx = (s.bbox.x0 + s.bbox.x1) / 2;
+        const my = (s.bbox.y0 + s.bbox.y1) / 2;
+        const col = Math.min(14, Math.max(0, Math.floor(mx / cw2)));
+        const row = Math.min(14, Math.max(0, Math.floor(my / ch2)));
+        nb[row][col] = ch; placed++;
+      }
+      boardState = nb;
+      renderBoard();
+      statusEl.textContent = placed > 0
+        ? `✓ Detected ${placed} tiles. Use Edit Mode to fix any errors.`
+        : 'OCR found no tiles. Try adjusting the crop region, then use Edit Mode.';
+    }
+  } catch (e) {
+    statusEl.textContent = 'OCR error: ' + e.message + ' — use Edit Mode instead.';
+    console.error(e);
+  }
+  btn.disabled = false; btn.textContent = '📖 Read Board';
+}
+
+// ── Find Plays ──
+async function findPlays() {
+  const rack = getRack();
+  if (!rack.length) { alert('Enter your rack tiles first.'); return; }
+
+  const btn = document.getElementById('solve-btn');
+  btn.disabled = true; btn.textContent = '⏳ Searching…';
+  clearHighlight(); pinnedEl = null;
+
+  const card = document.getElementById('results-card');
+  card.style.display = '';
+  document.getElementById('results-area').innerHTML = '<div class="loading">SCANNING DICTIONARY…</div>';
+  document.getElementById('res-count').textContent = '';
+  document.getElementById('res-filter').value = '';
+
+  try {
+    const resp = await fetch('/api/board-solve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ board: boardState, rack })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    allPlays = data.plays || [];
+    document.getElementById('res-title').textContent = `Results — ${(data.total||0).toLocaleString()} plays found`;
+    renderResults(allPlays);
+  } catch (e) {
+    document.getElementById('results-area').innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+
+  btn.disabled = false; btn.textContent = '▶ Find All Plays';
+}
+
+function filterResults() {
+  const q = document.getElementById('res-filter').value.toUpperCase().trim();
+  const filtered = q ? allPlays.filter(p => p.word.includes(q)) : allPlays;
+  document.getElementById('res-count').innerHTML = `Showing <span>${filtered.length}</span> of <span>${allPlays.length}</span>`;
+  renderResults(filtered, true);
+}
+
+function renderResults(plays, fromFilter) {
+  const area = document.getElementById('results-area');
+  if (!fromFilter) {
+    document.getElementById('res-count').innerHTML = `Showing <span>${plays.length}</span> play${plays.length!==1?'s':''}`;
+  }
+  if (!plays.length) {
+    area.innerHTML = '<div class="no-results"><div class="icon">🔍</div><div class="msg">NO VALID PLAYS FOUND</div></div>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  const list = document.createElement('div');
+  list.className = 'results-list';
+
+  for (const p of plays) {
+    const item = document.createElement('div');
+    item.className = 'res-item';
+    item.dataset.row = p.row; item.dataset.col = p.col;
+    item.dataset.isvert = p.isVert; item.dataset.word = p.word;
+
+    // Build word display with new/existing tile coloring
+    let wordHtml = '';
+    for (let i = 0; i < p.word.length; i++) {
+      const r = p.isVert ? p.row+i : p.row;
+      const c = p.isVert ? p.col : p.col+i;
+      const isNew = !boardState[r][c];
+      wordHtml += `<span class="${isNew?'nw':'ew'}">${p.word[i]}</span>`;
+    }
+
+    const dir = p.isVert ? '↓' : '→';
+    const pos = `R${p.row+1}C${p.col+1}`;
+    item.innerHTML = `
+      <div class="res-score">${p.score}</div>
+      <div class="res-word">${wordHtml}</div>
+      <div class="res-pos">${dir} ${pos}</div>`;
+
+    item.addEventListener('mouseenter', () => { if (!pinnedEl) highlightPlay(item); });
+    item.addEventListener('mouseleave', () => { if (!pinnedEl) clearHighlight(); });
+    item.addEventListener('click', () => togglePin(item));
+
+    list.appendChild(item);
+  }
+  frag.appendChild(list);
+  area.innerHTML = '';
+  area.appendChild(frag);
+}
+
+// ── Highlight ──
+function highlightPlay(el) {
+  clearHighlight();
+  const row = +el.dataset.row, col = +el.dataset.col;
+  const isVert = el.dataset.isvert==='true', word = el.dataset.word;
+  for (let i = 0; i < word.length; i++) {
+    const r = isVert ? row+i : row, c = isVert ? col : col+i;
+    const cell = document.getElementById(`bc-${r}-${c}`);
+    if (cell) cell.classList.add(boardState[r][c] ? 'hl-use' : 'hl-new');
+  }
+}
+
+function clearHighlight() {
+  document.querySelectorAll('.hl-new,.hl-use').forEach(el => el.classList.remove('hl-new','hl-use'));
+}
+
+function togglePin(el) {
+  if (pinnedEl === el) {
+    el.classList.remove('pinned'); pinnedEl = null; clearHighlight();
+  } else {
+    if (pinnedEl) { pinnedEl.classList.remove('pinned'); clearHighlight(); }
+    pinnedEl = el; el.classList.add('pinned'); highlightPlay(el);
+  }
+}
+
+// ── Init ──
+initBoard();
+initRack();
+</script>
+</body>
+</html>

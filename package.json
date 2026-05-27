@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "setup": "node setup-db.js && node seed-db.js"
+    "setup": "node setup-db.js && node seed-db.js",
+    "board-setup": "node setup-board.js && node seed-board.js"
   },
   "engines": {
     "node": ">=18.0.0"
