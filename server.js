@@ -162,6 +162,16 @@ app.get('/api/solve', (req, res) => {
   ].filter(Boolean));
   const filterS = excludeS === '1' || excludeS === 'true';
 
+  // Words ending in S that are NOT regular plurals/verb forms — kept even when filterS is on
+  // Covers: -SS (ABYSS, CLASS…), -US (BONUS, VIRUS…), -IS (AEGIS, BASIS…), -OS (CHAOS, ETHOS…)
+  // plus a small manual list for edge cases (-AS words, etc.)
+  const S_SAFE_SUFFIXES = ['SS', 'US', 'IS', 'OS'];
+  const S_SAFE_WORDS = new Set(['ATLAS', 'TAPAS']);
+  function isNonPluralS(word) {
+    for (const suf of S_SAFE_SUFFIXES) if (word.endsWith(suf)) return true;
+    return S_SAFE_WORDS.has(word);
+  }
+
   // Exact position filters (pos0–pos4)
   const posFilters = [pos0, pos1, pos2, pos3, pos4].map(p => p ? p.toUpperCase() : null);
 
@@ -172,8 +182,8 @@ app.get('/api/solve', (req, res) => {
     // ① Score check (fastest: arithmetic only)
     if (computeWordScore(word) !== baseScore) continue;
 
-    // ① S-ending filter (regular plurals are never puzzle answers)
-    if (filterS && word.endsWith('S')) continue;
+    // ① S-ending filter (regular plurals are never puzzle answers; keep non-plural S-enders)
+    if (filterS && word.endsWith('S') && !isNonPluralS(word)) continue;
 
     // ② TL/DL position lock check
     if (tlPosLock !== null || dlPosLock !== null) {
