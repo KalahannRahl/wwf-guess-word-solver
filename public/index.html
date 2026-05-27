@@ -65,15 +65,17 @@ body {
 /* ── Header ── */
 header { text-align: center; padding: 20px 0 16px; position: relative; }
 .info-btn {
-  position: absolute; top: 18px; right: 0;
-  width: 32px; height: 32px; border-radius: 50%;
-  background: rgba(0,212,255,0.08); border: 1px solid var(--accent);
+  position: absolute; top: 14px; right: 0;
+  padding: 6px 12px; border-radius: 20px;
+  background: rgba(0,212,255,0.12); border: 1px solid var(--accent);
   color: var(--accent); font-family: 'Orbitron', sans-serif;
-  font-size: 0.85rem; font-weight: 700; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s; text-decoration: none;
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+  transition: all 0.2s; text-decoration: none; white-space: nowrap;
+  box-shadow: 0 0 10px rgba(0,212,255,0.2);
+  text-transform: uppercase;
 }
-.info-btn:hover { background: rgba(0,212,255,0.18); box-shadow: 0 0 14px rgba(0,212,255,0.4); }
+.info-btn:hover { background: rgba(0,212,255,0.22); box-shadow: 0 0 18px rgba(0,212,255,0.5); }
 .logo {
   font-family: 'Orbitron', sans-serif;
   font-size: clamp(1.3rem, 5vw, 2rem);
@@ -388,7 +390,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 <header>
   <div class="logo">GROK GUESS WORD</div>
   <div class="subtitle">Words With Friends · 5-Letter Solver</div>
-  <button class="info-btn" onclick="openInstructions()" aria-label="How to use">?</button>
+  <button class="info-btn" onclick="openInstructions()" aria-label="How to use">? HOW TO PLAY</button>
 </header>
 
 <!-- Score -->
