@@ -391,9 +391,6 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 <div class="container">
 
 <header>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
-    <a href="/board.html" style="font-family:'Orbitron',sans-serif;font-size:0.52rem;letter-spacing:0.12em;color:var(--muted);text-decoration:none;text-transform:uppercase;padding:4px 10px;border-radius:14px;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Board Solver →</a>
-  </div>
   <div class="logo">WORD GUESS SOLVER</div>
   <div class="header-sub-row">
     <div class="subtitle">Words With Friends · 5-Letter Solver</div>
@@ -442,7 +439,13 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
     <button class="mode-btn"                id="modeExclude" onclick="setMode('exclude')">&#x2260; Must Not</button>
   </div>
   <div class="keyboard" id="keyboard"></div>
-  <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">
+    <label id="excludeSLabel" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;user-select:none;" title="The puzzle answer is never a regular plural (e.g. CATS, DOGS). Toggle this on to hide words ending in S.">
+      <span id="excludeSToggle" onclick="toggleExcludeS()" style="display:inline-flex;width:34px;height:18px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);position:relative;cursor:pointer;transition:all 0.2s;flex-shrink:0;">
+        <span id="excludeSThumb" style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:all 0.2s;"></span>
+      </span>
+      EXCLUDE -S ENDINGS
+    </label>
     <button class="reset-btn" onclick="resetLetters()">RESET LETTERS</button>
   </div>
 </div>
@@ -675,6 +678,29 @@ function resetLetters() {
   buildKeyboard();
 }
 
+// ─── Exclude -S endings toggle ────────────────────────────────────────────────
+var excludeS = false;
+
+function toggleExcludeS() {
+  excludeS = !excludeS;
+  var thumb = document.getElementById('excludeSThumb');
+  var toggle = document.getElementById('excludeSToggle');
+  var label = document.getElementById('excludeSLabel');
+  if (excludeS) {
+    toggle.style.background = 'rgba(16,185,129,0.25)';
+    toggle.style.borderColor = 'var(--green)';
+    thumb.style.left = '18px';
+    thumb.style.background = 'var(--green)';
+    label.style.color = 'var(--green)';
+  } else {
+    toggle.style.background = 'var(--surface2)';
+    toggle.style.borderColor = 'var(--border)';
+    thumb.style.left = '2px';
+    thumb.style.background = 'var(--muted)';
+    label.style.color = 'var(--muted)';
+  }
+}
+
 // ─── TL/DL Position lock — 3-state per position: '' | 'TL' | 'DL' ──────────
 var posBonus = ['','','','','']; // state per position
 
@@ -789,6 +815,7 @@ async function solve() {
   if (dlPosIdx !== -1) params.set('dlPos', dlPosIdx);
   if (mustInc) params.set('mustInclude', mustInc);
   if (mustExc) params.set('mustExclude', mustExc);
+  if (excludeS) params.set('excludeS', '1');
   posValues.forEach(function(v,i){ if(v) params.set('pos'+i, v); });
 
   var card    = document.getElementById('resultsCard');
