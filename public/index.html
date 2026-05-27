@@ -63,7 +63,17 @@ body {
 .container { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; padding: 12px 14px 32px; }
 
 /* ── Header ── */
-header { text-align: center; padding: 20px 0 16px; }
+header { text-align: center; padding: 20px 0 16px; position: relative; }
+.info-btn {
+  position: absolute; top: 18px; right: 0;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(0,212,255,0.08); border: 1px solid var(--accent);
+  color: var(--accent); font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; text-decoration: none;
+}
+.info-btn:hover { background: rgba(0,212,255,0.18); box-shadow: 0 0 14px rgba(0,212,255,0.4); }
 .logo {
   font-family: 'Orbitron', sans-serif;
   font-size: clamp(1.3rem, 5vw, 2rem);
@@ -117,15 +127,10 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 .solve-btn:hover { opacity:0.9; box-shadow:0 0 30px rgba(0,212,255,0.5); }
 .solve-btn:active { transform:scale(0.97); }
 
-/* ── TL Position toggles ── */
+/* ── TL/DL Position lock ── */
 .tl-hint {
   font-size:0.62rem; color:var(--muted); margin-bottom:10px; letter-spacing:0.05em;
 }
-.tl-count {
-  display:inline-block; font-family:'Orbitron',sans-serif; font-size:0.62rem;
-  color:var(--accent3); margin-left:6px;
-}
-.tl-count.full { color:var(--green); }
 .tl-slots { display:flex; gap:6px; }
 .tl-slot {
   flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
@@ -137,15 +142,22 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   font-family:'Orbitron',sans-serif; font-size:0.55rem; font-weight:700;
   color:var(--muted); cursor:pointer; transition:all 0.15s; user-select:none;
-  letter-spacing:0.05em;
+  letter-spacing:0.05em; gap:2px;
 }
 .tl-box span { font-size:0.9rem; font-weight:900; line-height:1; }
 .tl-box:hover { border-color:var(--muted); }
-.tl-box.selected {
+/* TL active = purple (highest value letter here) */
+.tl-box.tl-active {
   background:rgba(124,58,237,0.2); border-color:var(--accent2);
   color:#c4b5fd; box-shadow:0 0 12px rgba(124,58,237,0.4);
 }
-.tl-box.selected span { color:white; }
+.tl-box.tl-active span { color:white; }
+/* DL active = cyan (2nd highest value letter here) */
+.tl-box.dl-active {
+  background:rgba(0,212,255,0.15); border-color:var(--accent);
+  color:var(--accent); box-shadow:0 0 10px rgba(0,212,255,0.3);
+}
+.tl-box.dl-active span { color:white; }
 
 /* ── Confirmed positions ── */
 .pos-slots { display:flex; gap:6px; justify-content:space-between; }
@@ -295,6 +307,78 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   .result-word { font-size:1.05rem; }
   .tl-box span { font-size:1rem; }
 }
+
+/* ── Instructions Overlay ── */
+.inst-overlay {
+  display:none; position:fixed; inset:0; z-index:300;
+  background:rgba(10,14,26,0.98);
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+}
+.inst-overlay.open { display:block; }
+.inst-inner { max-width:600px; margin:0 auto; padding:20px 16px 60px; }
+.inst-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding-bottom:14px; margin-bottom:20px;
+  border-bottom:1px solid var(--border);
+}
+.inst-logo {
+  font-family:'Orbitron',sans-serif; font-size:1rem; font-weight:900;
+  background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 60%,var(--accent3) 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.inst-subtitle { font-size:0.62rem; color:var(--muted); letter-spacing:0.18em; text-transform:uppercase; margin-top:2px; }
+.inst-close {
+  width:38px; height:38px; border-radius:50%; flex-shrink:0;
+  background:rgba(239,68,68,0.1); border:1px solid var(--red);
+  color:var(--red); font-size:1.1rem; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:all 0.2s;
+}
+.inst-close:hover { background:rgba(239,68,68,0.25); box-shadow:0 0 14px rgba(239,68,68,0.4); }
+.inst-section { margin-bottom:22px; }
+.inst-step-title {
+  font-family:'Orbitron',sans-serif; font-size:0.65rem; font-weight:700;
+  letter-spacing:0.15em; text-transform:uppercase; color:var(--accent3);
+  margin-bottom:8px; display:flex; align-items:center; gap:8px;
+}
+.inst-step-title::after { content:''; flex:1; height:1px; background:linear-gradient(to right,var(--accent3),transparent); opacity:0.25; }
+.inst-step-num {
+  width:22px; height:22px; border-radius:50%; background:rgba(245,158,11,0.15);
+  border:1px solid var(--accent3); color:var(--accent3);
+  font-size:0.6rem; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.inst-body { font-size:0.7rem; color:#94a3b8; line-height:1.75; }
+.inst-body strong { color:var(--text); }
+.inst-body .tag-tl {
+  display:inline-block; padding:1px 6px; border-radius:4px;
+  background:rgba(124,58,237,0.25); border:1px solid var(--accent2);
+  color:#c4b5fd; font-family:'Orbitron',sans-serif; font-size:0.58rem; font-weight:700;
+}
+.inst-body .tag-dl {
+  display:inline-block; padding:1px 6px; border-radius:4px;
+  background:rgba(0,212,255,0.15); border:1px solid var(--accent);
+  color:var(--accent); font-family:'Orbitron',sans-serif; font-size:0.58rem; font-weight:700;
+}
+.inst-list { margin:8px 0 0 4px; display:flex; flex-direction:column; gap:6px; }
+.inst-list-item { display:flex; gap:8px; font-size:0.7rem; color:#94a3b8; line-height:1.5; }
+.inst-bullet { color:var(--accent); flex-shrink:0; font-size:0.8rem; line-height:1.5; }
+.inst-callout {
+  background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent);
+  border-radius:8px; padding:12px 14px; margin-top:10px;
+}
+.inst-score-formula { display:flex; flex-direction:column; gap:5px; margin-top:10px; }
+.inst-formula-row { display:flex; align-items:center; gap:10px; font-size:0.68rem; color:#94a3b8; }
+.inst-formula-icon { font-size:0.9rem; width:20px; text-align:center; }
+.inst-lv-table { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin-top:10px; }
+.inst-lv-pts {
+  font-family:'Orbitron',sans-serif; font-size:0.65rem; font-weight:700;
+  padding:4px 8px; border-radius:5px; text-align:center;
+  background:var(--surface2); border:1px solid var(--border); color:var(--accent3); white-space:nowrap;
+}
+.inst-lv-letters { font-size:0.7rem; color:var(--text); letter-spacing:0.1em; display:flex; align-items:center; }
+.inst-tip { display:flex; align-items:flex-start; gap:8px; font-size:0.7rem; color:#94a3b8; line-height:1.55; }
+.inst-tip-icon { flex-shrink:0; font-size:0.85rem; }
+.inst-divider { height:1px; background:linear-gradient(to right,transparent,var(--border),transparent); margin:18px 0; }
 </style>
 </head>
 <body>
@@ -304,6 +388,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 <header>
   <div class="logo">GROK GUESS WORD</div>
   <div class="subtitle">Words With Friends · 5-Letter Solver</div>
+  <button class="info-btn" onclick="openInstructions()" aria-label="How to use">?</button>
 </header>
 
 <!-- Score -->
@@ -319,13 +404,10 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   </div>
 </div>
 
-<!-- TL Positions -->
+<!-- TL/DL Position Lock -->
 <div class="card">
-  <div class="card-title">TL Bonus Positions</div>
-  <div class="tl-hint">
-    Tap the 3 positions that show a TL square on Row 1 of the board
-    <span class="tl-count" id="tlCount">0/3 selected</span>
-  </div>
+  <div class="card-title">Bonus Position Lock</div>
+  <div class="tl-hint">Tap to cycle each position: blank &#x2192; <span style="color:#c4b5fd">TL &#xD7;3</span> &#x2192; <span style="color:var(--accent)">DL &#xD7;2</span> &#x2192; blank</div>
   <div class="tl-slots" id="tlSlots"></div>
 </div>
 
@@ -346,8 +428,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 <div class="card">
   <div class="card-title">Letter Filter</div>
   <div class="mode-row">
-    <button class="mode-btn active-block"   id="modeBlock"   onclick="setMode('block')">&#x2715; Block</button>
-    <button class="mode-btn"                id="modeInclude" onclick="setMode('include')">&#x2713; Must Have</button>
+    <button class="mode-btn active-include" id="modeInclude" onclick="setMode('include')">&#x2713; Must Have</button>
     <button class="mode-btn"                id="modeExclude" onclick="setMode('exclude')">&#x2260; Must Not</button>
   </div>
   <div class="keyboard" id="keyboard"></div>
@@ -376,6 +457,125 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 </div>
 
 </div><!-- /container -->
+
+<!-- Instructions Overlay -->
+<div class="inst-overlay" id="instructionsOverlay">
+  <div class="inst-inner">
+
+    <div class="inst-header">
+      <div>
+        <div class="inst-logo">GROK GUESS WORD</div>
+        <div class="inst-subtitle">How To Use</div>
+      </div>
+      <button class="inst-close" onclick="closeInstructions()" aria-label="Close">&#x2715;</button>
+    </div>
+
+    <div class="inst-section">
+      <div class="inst-body">
+        <strong>What this app does:</strong> Helps you solve the daily Guess Word puzzle in Words With Friends by finding every possible answer based on the target score and bonus tile positions.
+      </div>
+    </div>
+
+    <div class="inst-divider"></div>
+
+    <!-- Step 1 -->
+    <div class="inst-section">
+      <div class="inst-step-title"><span class="inst-step-num">1</span>Enter Your Target Score</div>
+      <div class="inst-body">
+        Look at the top of your Guess Word puzzle. You'll see <strong>"Score X pts to earn."</strong> Type that number into the score box. The app automatically shows the base word value (score ÷ 3) beneath it.
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="inst-section">
+      <div class="inst-step-title"><span class="inst-step-num">2</span>Lock Bonus Positions</div>
+      <div class="inst-body">
+        Tap each position button (1–5) to mark it as <span class="tag-tl">TL ×3</span> or <span class="tag-dl">DL ×2</span>.
+        One tap = TL, two taps = DL, three taps = clear. Locking these positions is your most powerful filter — it cuts results from hundreds of words down to a handful instantly.
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="inst-section">
+      <div class="inst-step-title"><span class="inst-step-num">3</span>Hit Solve</div>
+      <div class="inst-body">
+        The app returns all valid WWF words that can hit your target score, grouped by letter value pattern.
+        Results are sorted by most likely letters first based on the game's own priority system.
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="inst-section">
+      <div class="inst-step-title"><span class="inst-step-num">4</span>Use Your Guesses to Filter</div>
+      <div class="inst-body">After each guess the game gives you information. Use it:</div>
+      <div class="inst-list">
+        <div class="inst-list-item"><span class="inst-bullet">&#x2713;</span><span>Letters confirmed in the word → tap them in <strong>Must Have</strong></span></div>
+        <div class="inst-list-item"><span class="inst-bullet">&#x2260;</span><span>Letters confirmed NOT in the word → tap them in <strong>Must Not</strong></span></div>
+        <div class="inst-list-item"><span class="inst-bullet">&#x25A0;</span><span>Letter confirmed at exact position → enter it in the <strong>Position Lock</strong> boxes</span></div>
+      </div>
+      <div class="inst-body" style="margin-top:8px;">Hit Solve again — the list shrinks dramatically.</div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="inst-section">
+      <div class="inst-step-title"><span class="inst-step-num">5</span>Lock TL/DL on Guess 3</div>
+      <div class="inst-body">
+        By Round 3 the board shows you exactly which position is <span class="tag-tl">TL ×3</span> and which is <span class="tag-dl">DL ×2</span>.
+        Use the position lock buttons to confirm these exactly. Combined with your letter filters you'll typically be down to 1–3 words at this point.
+      </div>
+    </div>
+
+    <div class="inst-divider"></div>
+
+    <!-- Scoring -->
+    <div class="inst-section">
+      <div class="inst-step-title">Scoring Explained</div>
+      <div class="inst-body">The game always scores the same way:</div>
+      <div class="inst-callout">
+        <div class="inst-score-formula">
+          <div class="inst-formula-row"><span class="inst-formula-icon">&#x1F3AF;</span>Your word is placed on a Triple Word (TW) row</div>
+          <div class="inst-formula-row"><span class="inst-formula-icon" style="color:#c4b5fd">&#xD7;3</span>The highest value letter gets tripled</div>
+          <div class="inst-formula-row"><span class="inst-formula-icon" style="color:var(--accent)">&#xD7;2</span>The second highest value letter gets doubled</div>
+          <div class="inst-formula-row"><span class="inst-formula-icon">&#x2022;</span>The other 3 letters score at face value</div>
+          <div class="inst-formula-row"><span class="inst-formula-icon" style="color:var(--accent3)">&#xD7;3</span>Then the entire word score is multiplied ×3</div>
+        </div>
+        <div class="inst-body" style="margin-top:10px; color:var(--accent3);">
+          <strong>Target Score ÷ 3 = the base word value you need.</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Letter values -->
+    <div class="inst-section">
+      <div class="inst-step-title">Letter Values</div>
+      <div class="inst-lv-table">
+        <div class="inst-lv-pts">1 pt</div><div class="inst-lv-letters">T &nbsp;S &nbsp;R &nbsp;O &nbsp;I &nbsp;E &nbsp;A</div>
+        <div class="inst-lv-pts">2 pt</div><div class="inst-lv-letters">U &nbsp;N &nbsp;L &nbsp;D</div>
+        <div class="inst-lv-pts">3 pt</div><div class="inst-lv-letters">Y &nbsp;H &nbsp;G</div>
+        <div class="inst-lv-pts">4 pt</div><div class="inst-lv-letters">W &nbsp;P &nbsp;M &nbsp;F &nbsp;C &nbsp;B</div>
+        <div class="inst-lv-pts" style="color:var(--accent)">5 pt</div><div class="inst-lv-letters">K &nbsp;V</div>
+        <div class="inst-lv-pts" style="color:#f472b6">8 pt</div><div class="inst-lv-letters">X</div>
+        <div class="inst-lv-pts" style="color:#c084fc">10 pt</div><div class="inst-lv-letters">Q &nbsp;J &nbsp;Z</div>
+      </div>
+      <div class="inst-body" style="margin-top:10px;">Higher scoring letters are rarer — if your target score is high, expect a <strong>K, V, X, Q, J,</strong> or <strong>Z</strong> in the answer.</div>
+    </div>
+
+    <div class="inst-divider"></div>
+
+    <!-- Tips -->
+    <div class="inst-section">
+      <div class="inst-step-title">Tips from Experienced Players</div>
+      <div class="inst-list">
+        <div class="inst-tip"><span class="inst-tip-icon">&#x26A1;</span><span>Always set bonus positions first — it's the single biggest filter</span></div>
+        <div class="inst-tip"><span class="inst-tip-icon">&#x1F4C8;</span><span>High scores (66+) almost always have a 4pt or 5pt letter on the triple bonus</span></div>
+        <div class="inst-tip"><span class="inst-tip-icon">&#x1F48E;</span><span>Very high scores (90+) likely contain X, Q, J, or Z</span></div>
+        <div class="inst-tip"><span class="inst-tip-icon">&#x1F9E0;</span><span>Use the smart starter suggestions — they're calculated from your specific candidate list, not a generic dictionary</span></div>
+        <div class="inst-tip"><span class="inst-tip-icon">&#x1F511;</span><span>Confirm positions as soon as you know them — one locked letter cuts the list in half</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <!-- Position Modal -->
 <div class="modal-overlay" id="posModal">
@@ -419,12 +619,12 @@ var KB_ROWS = [
   ['Z','X','C','V','B','N','M']
 ];
 var letterStates = {};
-var currentMode = 'block';
+var currentMode = 'include';
 
 function setMode(mode) {
   currentMode = mode;
-  ['block','include','exclude'].forEach(function(m){
-    var id = 'mode'+(m==='block'?'Block':m==='include'?'Include':'Exclude');
+  ['include','exclude'].forEach(function(m){
+    var id = 'mode'+(m==='include'?'Include':'Exclude');
     document.getElementById(id).className = 'mode-btn'+(m===mode?' active-'+mode:'');
   });
 }
@@ -454,9 +654,8 @@ function updateKeyState(el, letter) {
 
 function toggleLetter(letter) {
   var cur = letterStates[letter];
-  if (currentMode==='block')        letterStates[letter] = cur==='blocked' ? null : 'blocked';
-  else if (currentMode==='include') letterStates[letter] = cur==='include' ? null : 'include';
-  else                              letterStates[letter] = cur==='exclude' ? null : 'exclude';
+  if (currentMode==='include') letterStates[letter] = cur==='include' ? null : 'include';
+  else                         letterStates[letter] = cur==='exclude' ? null : 'exclude';
   var key = document.getElementById('key-'+letter);
   if (key) updateKeyState(key, letter);
 }
@@ -466,8 +665,8 @@ function resetLetters() {
   buildKeyboard();
 }
 
-// ─── TL Position toggles ─────────────────────────────────────────────────────
-var tlSelected = new Set(); // 0-indexed positions
+// ─── TL/DL Position lock — 3-state per position: '' | 'TL' | 'DL' ──────────
+var posBonus = ['','','','','']; // state per position
 
 function buildTlSlots() {
   var container = document.getElementById('tlSlots');
@@ -481,10 +680,9 @@ function buildTlSlots() {
     label.textContent = 'POS '+(i+1);
 
     var box = document.createElement('div');
-    box.className = 'tl-box';
     box.id = 'tl-'+i;
-    box.innerHTML = '<span>'+(i+1)+'</span>TL';
-    (function(idx){ box.onclick = function(){ toggleTl(idx); }; })(i);
+    updateTlBox(box, i);
+    (function(idx){ box.onclick = function(){ cycleTlDl(idx); }; })(i);
 
     slot.appendChild(label);
     slot.appendChild(box);
@@ -492,22 +690,25 @@ function buildTlSlots() {
   }
 }
 
-function toggleTl(idx) {
-  if (tlSelected.has(idx)) {
-    tlSelected.delete(idx);
-    document.getElementById('tl-'+idx).classList.remove('selected');
+function updateTlBox(box, idx) {
+  var state = posBonus[idx];
+  if (state === 'TL') {
+    box.className = 'tl-box tl-active';
+    box.innerHTML = '<span>'+(idx+1)+'</span>TL';
+  } else if (state === 'DL') {
+    box.className = 'tl-box dl-active';
+    box.innerHTML = '<span>'+(idx+1)+'</span>DL';
   } else {
-    if (tlSelected.size >= 3) return; // max 3
-    tlSelected.add(idx);
-    document.getElementById('tl-'+idx).classList.add('selected');
+    box.className = 'tl-box';
+    box.innerHTML = '<span>'+(idx+1)+'</span>';
   }
-  updateTlCount();
 }
 
-function updateTlCount() {
-  var el = document.getElementById('tlCount');
-  el.textContent = tlSelected.size+'/3 selected';
-  el.className = 'tl-count'+(tlSelected.size===3?' full':'');
+function cycleTlDl(idx) {
+  var cur = posBonus[idx];
+  posBonus[idx] = cur==='' ? 'TL' : cur==='TL' ? 'DL' : '';
+  var box = document.getElementById('tl-'+idx);
+  if (box) updateTlBox(box, idx);
 }
 
 // ─── Confirmed position slots ─────────────────────────────────────────────────
@@ -552,7 +753,7 @@ document.getElementById('scoreInput').addEventListener('input', function(){
   var hint = document.getElementById('scoreHint');
   if (!v || isNaN(v)) { hint.textContent = ' '; hint.className = 'score-hint'; return; }
   if (v % 3 === 0) {
-    hint.textContent = '÷3 = '+(v/3)+' base points';
+    hint.textContent = 'Base word score: '+(v/3);
     hint.className = 'score-hint valid';
   } else {
     var lo = v - (v%3), hi = lo+3;
@@ -568,16 +769,16 @@ async function solve() {
   if (!targetScore || isNaN(targetScore)) { alert('Please enter a score'); return; }
   if (targetScore % 3 !== 0) { alert('Score must be divisible by 3 (e.g. 66, 69, 72…)'); return; }
 
-  var blocked    = Object.entries(letterStates).filter(function(e){return e[1]==='blocked';}).map(function(e){return e[0];}).join('');
-  var mustInc    = Object.entries(letterStates).filter(function(e){return e[1]==='include';}).map(function(e){return e[0];}).join('');
-  var mustExc    = Object.entries(letterStates).filter(function(e){return e[1]==='exclude';}).map(function(e){return e[0];}).join('');
-  var tlParam    = tlSelected.size===3 ? Array.from(tlSelected).join(',') : '';
+  var mustInc = Object.entries(letterStates).filter(function(e){return e[1]==='include';}).map(function(e){return e[0];}).join('');
+  var mustExc = Object.entries(letterStates).filter(function(e){return e[1]==='exclude';}).map(function(e){return e[0];}).join('');
+  var tlPosIdx = posBonus.indexOf('TL');
+  var dlPosIdx = posBonus.indexOf('DL');
 
   var params = new URLSearchParams({ score: targetScore });
-  if (tlParam)   params.set('tlPositions', tlParam);
-  if (blocked)   params.set('blocked', blocked);
-  if (mustInc)   params.set('mustInclude', mustInc);
-  if (mustExc)   params.set('mustExclude', mustExc);
+  if (tlPosIdx !== -1) params.set('tlPos', tlPosIdx);
+  if (dlPosIdx !== -1) params.set('dlPos', dlPosIdx);
+  if (mustInc) params.set('mustInclude', mustInc);
+  if (mustExc) params.set('mustExclude', mustExc);
   posValues.forEach(function(v,i){ if(v) params.set('pos'+i, v); });
 
   var card    = document.getElementById('resultsCard');
@@ -704,13 +905,30 @@ async function solve() {
   }
 }
 
+// ─── Instructions overlay ─────────────────────────────────────────────────────
+function openInstructions() {
+  document.getElementById('instructionsOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeInstructions() {
+  document.getElementById('instructionsOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e){
-  if (e.key==='Enter' && !document.getElementById('posModal').classList.contains('open')) solve();
-  if (e.key==='Escape') closePosModal();
+  if (e.key==='Escape') {
+    closePosModal();
+    closeInstructions();
+  }
+  if (e.key==='Enter' && !document.getElementById('posModal').classList.contains('open')
+      && !document.getElementById('instructionsOverlay').classList.contains('open')) solve();
 });
 document.getElementById('posModal').addEventListener('click', function(e){
   if (e.target===this) closePosModal();
+});
+document.getElementById('instructionsOverlay').addEventListener('click', function(e){
+  if (e.target===this) closeInstructions();
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

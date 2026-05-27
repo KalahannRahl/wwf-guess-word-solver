@@ -130,7 +130,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/solve', (req, res) => {
   const {
     score,
-    tlPositions = '',
+    tlPos = '',
+    dlPos = '',
     mustInclude = '',
     mustExclude = '',
     blocked = '',
@@ -145,11 +146,11 @@ app.get('/api/solve', (req, res) => {
 
   const baseScore = targetScore / 3;
 
-  // Parse TL positions: "0,2,4" → Set{0,2,4}
-  const tlPosSet = tlPositions
-    ? new Set(tlPositions.split(',').map(Number).filter(n => n >= 0 && n <= 4))
-    : new Set();
-  const useTlFilter = tlPosSet.size === 3;
+  // TL/DL position lock — exact bonus position filter
+  // tlPos = 0-4 index where the highest-value letter must land (TL ×3)
+  // dlPos = 0-4 index where the 2nd-highest-value letter must land (DL ×2)
+  const tlPosLock = tlPos !== '' ? parseInt(tlPos) : null;
+  const dlPosLock = dlPos !== '' ? parseInt(dlPos) : null;
 
   // Letter filters
   const mustIncArr = mustInclude.toUpperCase().split('').filter(Boolean);
@@ -168,12 +169,11 @@ app.get('/api/solve', (req, res) => {
     // ① Score check (fastest: arithmetic only)
     if (computeWordScore(word) !== baseScore) continue;
 
-    // ② TL position check
-    if (useTlFilter) {
-      const top3 = top3Positions(word);
-      let ok = true;
-      for (const p of tlPosSet) if (!top3.has(p)) { ok = false; break; }
-      if (!ok) continue;
+    // ② TL/DL position lock check
+    if (tlPosLock !== null || dlPosLock !== null) {
+      const bp = bonusPositions(word);
+      if (tlPosLock !== null && bp.tl !== tlPosLock) continue;
+      if (dlPosLock !== null && bp.dl !== dlPosLock) continue;
     }
 
     // ③ Exact position filters

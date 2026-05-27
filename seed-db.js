@@ -53,10 +53,14 @@ function fetchUrl(url) {
   });
 }
 
+// Authoritative Scrabble/WWF word lists only
 const WORD_SOURCES = [
-  'https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt',
-  'https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english.txt',
+  // Collins Scrabble Words (CSW) — used in international Scrabble & WWF
   'https://raw.githubusercontent.com/redbo/scrabblewords/master/dictionary.txt',
+  // ENABLE word list — Tournament Word List (TWL) used in North American Scrabble
+  'https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt',
+  // Collins English Words (lorenbrichter mirror of CSW)
+  'https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/en.txt',
 ];
 
 // Embedded fallback word list (common 5-letter words)
