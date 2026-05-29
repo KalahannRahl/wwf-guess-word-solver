@@ -164,20 +164,30 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 }
 .tl-box.dl-active span { color:white; }
 
-/* ── Confirmed positions ── */
-.pos-slots { display:flex; gap:6px; justify-content:space-between; }
-.pos-slot { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; }
-.pos-label { font-size:0.55rem; color:var(--muted); font-family:'Orbitron',sans-serif; letter-spacing:0.1em; }
-.pos-box {
-  width:100%; aspect-ratio:1; max-width:56px; background:var(--surface2); border:2px solid var(--border);
-  border-radius:8px; display:flex; align-items:center; justify-content:center;
-  font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:700; color:var(--accent3);
-  cursor:pointer; transition:all 0.2s; text-transform:uppercase; user-select:none;
+/* ── Guess rows ── */
+.guess-hint { font-size:0.62rem; color:var(--muted); margin-bottom:10px; letter-spacing:0.05em; }
+.guess-section { display:flex; flex-direction:column; gap:10px; }
+.guess-row { display:flex; flex-direction:column; gap:5px; }
+.guess-tiles { display:flex; gap:5px; }
+.guess-tile {
+  flex:1; aspect-ratio:1; max-width:54px;
+  background:var(--surface2); border:2px solid var(--border); border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:700;
+  color:var(--border); cursor:pointer; user-select:none; transition:all 0.15s;
+  text-transform:uppercase;
 }
-.pos-box.active { border-color:var(--accent3); box-shadow:0 0 12px rgba(245,158,11,0.4); }
-.pos-box:hover { border-color:var(--muted); }
-.pos-box .ph { color:var(--border); font-size:0.7rem; font-weight:400; }
-.pos-input-hint { font-size:0.58rem; color:var(--muted); text-align:center; margin-top:8px; letter-spacing:0.05em; }
+.guess-tile.has-letter { color:var(--text); border-color:#334155; }
+.guess-tile.green { background:rgba(16,185,129,0.2); border-color:var(--green); color:var(--green); }
+.guess-tile.yellow { background:rgba(245,158,11,0.18); border-color:var(--accent3); color:var(--accent3); }
+.guess-input {
+  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+  color:var(--text); font-family:'Orbitron',sans-serif; font-size:1rem; font-weight:700;
+  padding:5px 10px; text-align:center; outline:none; letter-spacing:0.35em; text-transform:uppercase;
+  transition:border-color 0.2s;
+}
+.guess-input:focus { border-color:var(--muted); }
+.guess-input::placeholder { color:var(--border); font-size:0.62rem; letter-spacing:0.1em; font-weight:400; }
 
 /* ── Keyboard ── */
 .keyboard { display:flex; flex-direction:column; gap:5px; }
@@ -190,15 +200,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 }
 .kb-key .val { position:absolute; bottom:2px; right:3px; font-size:0.42rem; color:var(--muted); font-family:'Share Tech Mono',monospace; }
 .kb-key:hover { border-color:var(--accent); }
-/* Point tier colors */
-.kb-key.tier-1  { color:#94a3b8; }
-.kb-key.tier-2  { color:#60a5fa; border-color:#1e3a8a; }
-.kb-key.tier-3  { color:#34d399; border-color:#065f46; }
-.kb-key.tier-4  { color:#fbbf24; border-color:#78350f; }
-.kb-key.tier-5  { color:#fb923c; border-color:#7c2d12; }
-.kb-key.tier-8  { color:#f472b6; border-color:#831843; }
-.kb-key.tier-10 { color:#c084fc; border-color:#581c87; }
-/* Filter states override tier color */
+/* Filter states */
 .kb-key.blocked  { background:rgba(239,68,68,0.15); border-color:var(--red);    color:var(--red);    text-decoration:line-through; }
 .kb-key.must-inc { background:rgba(16,185,129,0.15);  border-color:var(--green); color:var(--green); }
 .kb-key.must-exc { background:rgba(245,158,11,0.12); border-color:var(--accent3);color:var(--accent3); }
@@ -418,17 +420,14 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   <div class="tl-slots" id="tlSlots"></div>
 </div>
 
-<!-- Confirmed positions -->
+<!-- Attempted Words -->
 <div class="card">
-  <div class="card-title">Confirmed Letter Positions</div>
-  <div class="pos-slots">
-    <div class="pos-slot"><div class="pos-label">POS 1</div><div class="pos-box" id="pos0" onclick="openPosModal(0)"><span class="ph">?</span></div></div>
-    <div class="pos-slot"><div class="pos-label">POS 2</div><div class="pos-box" id="pos1" onclick="openPosModal(1)"><span class="ph">?</span></div></div>
-    <div class="pos-slot"><div class="pos-label">POS 3</div><div class="pos-box" id="pos2" onclick="openPosModal(2)"><span class="ph">?</span></div></div>
-    <div class="pos-slot"><div class="pos-label">POS 4</div><div class="pos-box" id="pos3" onclick="openPosModal(3)"><span class="ph">?</span></div></div>
-    <div class="pos-slot"><div class="pos-label">POS 5</div><div class="pos-box" id="pos4" onclick="openPosModal(4)"><span class="ph">?</span></div></div>
+  <div class="card-title">Your Guesses</div>
+  <div class="guess-hint">Type a word you guessed · tap each letter to mark it <span style="color:var(--green)">green</span> (right spot) or <span style="color:var(--accent3)">yellow</span> (wrong spot)</div>
+  <div class="guess-section" id="guessRows"></div>
+  <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+    <button class="reset-btn" onclick="clearGuesses()">CLEAR ALL</button>
   </div>
-  <div class="pos-input-hint">Tap a slot to lock a confirmed letter · tap again to clear</div>
 </div>
 
 <!-- Letter filter -->
@@ -590,26 +589,10 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   </div>
 </div>
 
-<!-- Position Modal -->
-<div class="modal-overlay" id="posModal">
-  <div class="modal">
-    <h3 id="modalTitle">SET POSITION 1</h3>
-    <p>Select the confirmed letter</p>
-    <div class="modal-keys" id="modalKeys"></div>
-    <button class="modal-cancel" onclick="closePosModal()">CANCEL / CLEAR</button>
-  </div>
-</div>
-
 <script>
 // ─── Letter values ───────────────────────────────────────────────────────────
 const LV = {A:1,B:4,C:4,D:2,E:1,F:4,G:3,H:3,I:1,J:10,K:5,L:2,M:4,N:2,O:1,P:4,Q:10,R:1,S:1,T:1,U:2,V:5,W:4,X:8,Y:3,Z:10};
 function lv(ch) { return LV[ch] || 1; }
-
-// ─── Tier → CSS class ────────────────────────────────────────────────────────
-function tierClass(ch) {
-  var v = LV[ch] || 1;
-  return v>=10?'tier-10':v>=8?'tier-8':v>=5?'tier-5':v>=4?'tier-4':v>=3?'tier-3':v>=2?'tier-2':'tier-1';
-}
 
 // ─── Bonus positions (TL=×3 goes to highest, DL=×2 to 2nd highest) ───────────
 // Tiebreaker: reverse alpha (Z beats A), then leftmost
@@ -662,7 +645,7 @@ function buildKeyboard() {
 
 function updateKeyState(el, letter) {
   var s = letterStates[letter];
-  el.className = 'kb-key '+tierClass(letter)+(s==='blocked'?' blocked':s==='include'?' must-inc':s==='exclude'?' must-exc':'');
+  el.className = 'kb-key'+(s==='blocked'?' blocked':s==='include'?' must-inc':s==='exclude'?' must-exc':'');
 }
 
 function toggleLetter(letter) {
@@ -747,40 +730,96 @@ function cycleTlDl(idx) {
   if (box) updateTlBox(box, idx);
 }
 
-// ─── Confirmed position slots ─────────────────────────────────────────────────
-var posValues = [null,null,null,null,null];
-var activePosSlot = null;
+// ─── Guess rows ───────────────────────────────────────────────────────────────
+var guessRows = [
+  {word:'', states:['plain','plain','plain','plain','plain']},
+  {word:'', states:['plain','plain','plain','plain','plain']},
+  {word:'', states:['plain','plain','plain','plain','plain']},
+  {word:'', states:['plain','plain','plain','plain','plain']}
+];
 
-function openPosModal(idx) {
-  if (posValues[idx]) { setPosLetter(idx, null); return; }
-  activePosSlot = idx;
-  document.getElementById('modalTitle').textContent = 'SET POSITION '+(idx+1);
-  var mk = document.getElementById('modalKeys');
-  mk.innerHTML = '';
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch){
-    var btn = document.createElement('div');
-    btn.className = 'modal-key';
-    btn.textContent = ch;
-    btn.onclick = function(){
-      setPosLetter(idx, ch);
-      document.getElementById('posModal').classList.remove('open');
-      activePosSlot = null;
-    };
-    mk.appendChild(btn);
+function renderGuessRows() {
+  var container = document.getElementById('guessRows');
+  container.innerHTML = '';
+  guessRows.forEach(function(row, ri) {
+    var rowEl = document.createElement('div');
+    rowEl.className = 'guess-row';
+
+    var tilesEl = document.createElement('div');
+    tilesEl.className = 'guess-tiles';
+    for (var i = 0; i < 5; i++) {
+      var tile = document.createElement('div');
+      var ch = row.word[i] || '';
+      var st = ch ? row.states[i] : 'plain';
+      tile.className = 'guess-tile' + (ch ? ' has-letter' : '') + (ch && st !== 'plain' ? ' '+st : '');
+      tile.textContent = ch;
+      (function(r,t){ tile.onclick = function(){ cycleTileState(r,t); }; })(ri, i);
+      tilesEl.appendChild(tile);
+    }
+
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'guess-input';
+    inp.maxLength = 5;
+    inp.placeholder = 'WORD ' + (ri+1);
+    inp.value = row.word;
+    inp.setAttribute('autocomplete','off');
+    inp.setAttribute('autocorrect','off');
+    inp.setAttribute('autocapitalize','characters');
+    inp.setAttribute('spellcheck','false');
+    (function(r){ inp.addEventListener('input', function(){ updateGuessWord(r, this.value); }); })(ri);
+
+    rowEl.appendChild(tilesEl);
+    rowEl.appendChild(inp);
+    container.appendChild(rowEl);
   });
-  document.getElementById('posModal').classList.add('open');
 }
 
-function closePosModal() {
-  document.getElementById('posModal').classList.remove('open');
-  activePosSlot = null;
+function cycleTileState(ri, ti) {
+  if (!guessRows[ri].word[ti]) return;
+  var cur = guessRows[ri].states[ti];
+  guessRows[ri].states[ti] = cur === 'plain' ? 'green' : cur === 'green' ? 'yellow' : 'plain';
+  renderGuessRows();
 }
 
-function setPosLetter(idx, letter) {
-  posValues[idx] = letter;
-  var box = document.getElementById('pos'+idx);
-  if (letter) { box.innerHTML = letter; box.classList.add('active'); }
-  else { box.innerHTML = '<span class="ph">?</span>'; box.classList.remove('active'); }
+function updateGuessWord(ri, value) {
+  var word = value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,5);
+  guessRows[ri].word = word;
+  for (var i = word.length; i < 5; i++) guessRows[ri].states[i] = 'plain';
+  renderGuessRows();
+}
+
+function clearGuesses() {
+  guessRows.forEach(function(row){
+    row.word = '';
+    row.states = ['plain','plain','plain','plain','plain'];
+  });
+  renderGuessRows();
+}
+
+// Derive solver constraints from all guess rows
+function deriveConstraints() {
+  var greenPos  = [null,null,null,null,null];
+  var notPos    = [[],[],[],[],[]];
+  var mustHave  = [];
+  var excluded  = new Set();
+
+  guessRows.forEach(function(row) {
+    for (var i = 0; i < 5; i++) {
+      var ch = row.word[i];
+      if (!ch) continue;
+      var st = row.states[i];
+      if      (st === 'green')  { greenPos[i] = ch; }
+      else if (st === 'yellow') { mustHave.push(ch); notPos[i].push(ch); }
+      else                      { excluded.add(ch); }
+    }
+  });
+
+  // Don't exclude letters that also appear green or yellow anywhere
+  mustHave.forEach(function(ch){ excluded.delete(ch); });
+  greenPos.forEach(function(ch){ if (ch) excluded.delete(ch); });
+
+  return { greenPos:greenPos, notPos:notPos, mustHave:mustHave, excluded:excluded };
 }
 
 // ─── Score input validation ────────────────────────────────────────────────────
@@ -805,18 +844,26 @@ async function solve() {
   if (!targetScore || isNaN(targetScore)) { alert('Please enter a score'); return; }
   if (targetScore % 3 !== 0) { alert('Score must be divisible by 3 (e.g. 66, 69, 72…)'); return; }
 
-  var mustInc = Object.entries(letterStates).filter(function(e){return e[1]==='include';}).map(function(e){return e[0];}).join('');
-  var mustExc = Object.entries(letterStates).filter(function(e){return e[1]==='exclude';}).map(function(e){return e[0];}).join('');
   var tlPosIdx = posBonus.indexOf('TL');
   var dlPosIdx = posBonus.indexOf('DL');
+
+  var c = deriveConstraints();
+
+  // Keyboard must-have / must-not supplement the guess row constraints
+  var keyMustInc = Object.entries(letterStates).filter(function(e){return e[1]==='include';}).map(function(e){return e[0];});
+  var keyMustExc = Object.entries(letterStates).filter(function(e){return e[1]==='exclude';}).map(function(e){return e[0];});
+
+  var allMustHave = Array.from(new Set(c.mustHave.concat(keyMustInc)));
+  var allExcluded = new Set(Array.from(c.excluded).concat(keyMustExc));
 
   var params = new URLSearchParams({ score: targetScore });
   if (tlPosIdx !== -1) params.set('tlPos', tlPosIdx);
   if (dlPosIdx !== -1) params.set('dlPos', dlPosIdx);
-  if (mustInc) params.set('mustInclude', mustInc);
-  if (mustExc) params.set('mustExclude', mustExc);
+  c.greenPos.forEach(function(ch, i){ if (ch) params.set('pos'+i, ch); });
+  c.notPos.forEach(function(letters, i){ if (letters.length) params.set('notPos'+i, letters.join('')); });
+  if (allMustHave.length) params.set('mustInclude', allMustHave.join(''));
+  if (allExcluded.size)   params.set('mustExclude', Array.from(allExcluded).join(''));
   if (excludeS) params.set('excludeS', '1');
-  posValues.forEach(function(v,i){ if(v) params.set('pos'+i, v); });
 
   var card    = document.getElementById('resultsCard');
   var content = document.getElementById('resultsContent');
@@ -842,7 +889,11 @@ async function solve() {
         var chip = document.createElement('div');
         chip.className = 'starter-chip';
         chip.textContent = w;
-        chip.onclick = function(){ w.split('').forEach(function(ch,i){ setPosLetter(i,ch); }); };
+        chip.onclick = function(){
+          for (var ri = 0; ri < guessRows.length; ri++) {
+            if (!guessRows[ri].word) { guessRows[ri].word = w; renderGuessRows(); break; }
+          }
+        };
         sc.appendChild(chip);
       });
     }
@@ -887,7 +938,11 @@ async function solve() {
 
         var item = document.createElement('div');
         item.className = 'result-item';
-        item.onclick = function(){ word.split('').forEach(function(ch,i){ setPosLetter(i,ch); }); };
+        item.onclick = function(){
+          for (var ri = 0; ri < guessRows.length; ri++) {
+            if (!guessRows[ri].word) { guessRows[ri].word = word; renderGuessRows(); break; }
+          }
+        };
 
         var num = document.createElement('div');
         num.className = 'result-num';
@@ -954,15 +1009,8 @@ function closeInstructions() {
 
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e){
-  if (e.key==='Escape') {
-    closePosModal();
-    closeInstructions();
-  }
-  if (e.key==='Enter' && !document.getElementById('posModal').classList.contains('open')
-      && !document.getElementById('instructionsOverlay').classList.contains('open')) solve();
-});
-document.getElementById('posModal').addEventListener('click', function(e){
-  if (e.target===this) closePosModal();
+  if (e.key==='Escape') closeInstructions();
+  if (e.key==='Enter' && !document.getElementById('instructionsOverlay').classList.contains('open')) solve();
 });
 document.getElementById('instructionsOverlay').addEventListener('click', function(e){
   if (e.target===this) closeInstructions();
@@ -971,6 +1019,7 @@ document.getElementById('instructionsOverlay').addEventListener('click', functio
 // ─── Init ─────────────────────────────────────────────────────────────────────
 buildKeyboard();
 buildTlSlots();
+renderGuessRows();
 
 // ─── Service Worker registration ──────────────────────────────────────────────
 if ('serviceWorker' in navigator) {

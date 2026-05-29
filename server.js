@@ -137,7 +137,8 @@ app.get('/api/solve', (req, res) => {
     mustExclude = '',
     blocked = '',
     excludeS = '',
-    pos0, pos1, pos2, pos3, pos4
+    pos0, pos1, pos2, pos3, pos4,
+    notPos0 = '', notPos1 = '', notPos2 = '', notPos3 = '', notPos4 = ''
   } = req.query;
 
   const targetScore = parseInt(score);
@@ -172,8 +173,12 @@ app.get('/api/solve', (req, res) => {
     return S_SAFE_WORDS.has(word);
   }
 
-  // Exact position filters (pos0–pos4)
+  // Exact position filters (pos0–pos4) — from green tiles
   const posFilters = [pos0, pos1, pos2, pos3, pos4].map(p => p ? p.toUpperCase() : null);
+
+  // Not-at-position filters — letters that must NOT appear at each position (yellow tiles)
+  const notPosFilters = [notPos0, notPos1, notPos2, notPos3, notPos4]
+    .map(p => p ? p.toUpperCase().split('') : []);
 
   const words = allWords();
   const matched = [];
@@ -192,16 +197,22 @@ app.get('/api/solve', (req, res) => {
       if (dlPosLock !== null && bp.dl !== dlPosLock) continue;
     }
 
-    // ③ Exact position filters
+    // ③ Exact position filters (green tiles)
     let posOk = true;
     for (let i = 0; i < 5; i++)
       if (posFilters[i] && word[i] !== posFilters[i]) { posOk = false; break; }
     if (!posOk) continue;
 
-    // ④ Must-include
+    // ④ Not-at-position (yellow tiles — letter present but not at this spot)
+    let notPosOk = true;
+    for (let i = 0; i < 5; i++)
+      if (notPosFilters[i].length && notPosFilters[i].includes(word[i])) { notPosOk = false; break; }
+    if (!notPosOk) continue;
+
+    // ⑤ Must-include (yellow letters must appear somewhere in the word)
     if (mustIncArr.some(ch => !word.includes(ch))) continue;
 
-    // ⑤ Blocked / must-exclude
+    // ⑥ Blocked / must-exclude (grey tiles — letter not in word at all)
     if ([...word].some(ch => blockedSet.has(ch))) continue;
 
     matched.push(word);
