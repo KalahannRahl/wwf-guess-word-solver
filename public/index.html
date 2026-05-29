@@ -166,8 +166,8 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 
 /* ── Guess rows ── */
 .guess-hint { font-size:0.62rem; color:var(--muted); margin-bottom:10px; letter-spacing:0.05em; }
-.guess-section { display:flex; flex-direction:column; gap:10px; }
-.guess-row { display:flex; flex-direction:column; gap:5px; }
+.guess-section { display:flex; flex-direction:column; gap:7px; }
+.guess-row { display:flex; flex-direction:column; gap:0; }
 .guess-tiles { display:flex; gap:5px; }
 .guess-tile {
   flex:1; aspect-ratio:1; max-width:54px;
@@ -178,16 +178,34 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   text-transform:uppercase;
 }
 .guess-tile.has-letter { color:var(--text); border-color:#334155; }
-.guess-tile.green { background:rgba(16,185,129,0.2); border-color:var(--green); color:var(--green); }
+.guess-tile.green  { background:rgba(16,185,129,0.2);  border-color:var(--green);   color:var(--green); }
 .guess-tile.yellow { background:rgba(245,158,11,0.18); border-color:var(--accent3); color:var(--accent3); }
-.guess-input {
-  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:6px;
-  color:var(--text); font-family:'Orbitron',sans-serif; font-size:1rem; font-weight:700;
-  padding:5px 10px; text-align:center; outline:none; letter-spacing:0.35em; text-transform:uppercase;
-  transition:border-color 0.2s;
+.guess-row.active-row .guess-tiles .guess-tile:not(.has-letter):first-of-type,
+.guess-row.active-row .guess-tiles { outline: none; }
+.guess-row.active-row .guess-tile:not(.has-letter) { border-color:#2d4a6b; }
+
+/* ── Tier keyboard ── */
+.tier-keyboard { display:flex; flex-direction:column; gap:5px; margin-top:12px; }
+.tier-row { display:flex; gap:4px; }
+.tier-key {
+  flex:1; height:40px; padding:0; border:2px solid;
+  border-radius:7px; font-family:'Orbitron',sans-serif; font-size:0.8rem; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:transform 0.1s, opacity 0.1s; position:relative; user-select:none;
 }
-.guess-input:focus { border-color:var(--muted); }
-.guess-input::placeholder { color:var(--border); font-size:0.62rem; letter-spacing:0.1em; font-weight:400; }
+.tier-key:active { transform:scale(0.9); opacity:0.8; }
+.tier-pts {
+  position:absolute; bottom:1px; right:3px;
+  font-size:0.38rem; font-family:'Share Tech Mono',monospace; opacity:0.75;
+}
+.tier-bs {
+  max-width:64px; flex:0 0 64px;
+  background:rgba(100,116,139,0.15); border-color:var(--muted);
+  color:var(--muted); font-size:1.1rem;
+}
+.tier-legend { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.tier-legend-item { display:flex; align-items:center; gap:4px; font-size:0.55rem; font-family:'Share Tech Mono',monospace; }
+.tier-legend-dot { width:8px; height:8px; border-radius:2px; }
 
 .reset-btn {
   font-size:0.58rem; color:var(--muted); background:none; border:1px solid var(--border); border-radius:6px;
@@ -398,6 +416,8 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   <div class="card-title">Your Guesses</div>
   <div class="guess-hint">Type a word you guessed · tap each letter to mark it <span style="color:var(--green)">green</span> (right spot) or <span style="color:var(--accent3)">yellow</span> (wrong spot)</div>
   <div class="guess-section" id="guessRows"></div>
+  <div class="tier-keyboard" id="tierKeyboard"></div>
+  <div class="tier-legend" id="tierLegend"></div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">
     <label id="excludeSLabel" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;user-select:none;" title="The puzzle answer is never a regular plural. Toggle to hide words ending in S.">
       <span id="excludeSToggle" onclick="toggleExcludeS()" style="display:inline-flex;width:34px;height:18px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);position:relative;cursor:pointer;transition:all 0.2s;flex-shrink:0;">
@@ -647,12 +667,19 @@ var guessRows = [
   {word:'', states:['plain','plain','plain','plain','plain']}
 ];
 
+function activeRowIndex() {
+  for (var i = 0; i < guessRows.length; i++)
+    if (guessRows[i].word.length < 5) return i;
+  return guessRows.length - 1; // all full — stay on last
+}
+
 function renderGuessRows() {
   var container = document.getElementById('guessRows');
+  var activeIdx = activeRowIndex();
   container.innerHTML = '';
   guessRows.forEach(function(row, ri) {
     var rowEl = document.createElement('div');
-    rowEl.className = 'guess-row';
+    rowEl.className = 'guess-row' + (ri === activeIdx ? ' active-row' : '');
 
     var tilesEl = document.createElement('div');
     tilesEl.className = 'guess-tiles';
@@ -665,21 +692,7 @@ function renderGuessRows() {
       (function(r,t){ tile.onclick = function(){ cycleTileState(r,t); }; })(ri, i);
       tilesEl.appendChild(tile);
     }
-
-    var inp = document.createElement('input');
-    inp.type = 'text';
-    inp.className = 'guess-input';
-    inp.maxLength = 5;
-    inp.placeholder = 'WORD ' + (ri+1);
-    inp.value = row.word;
-    inp.setAttribute('autocomplete','off');
-    inp.setAttribute('autocorrect','off');
-    inp.setAttribute('autocapitalize','characters');
-    inp.setAttribute('spellcheck','false');
-    (function(r){ inp.addEventListener('input', function(){ updateGuessWord(r, this.value); }); })(ri);
-
     rowEl.appendChild(tilesEl);
-    rowEl.appendChild(inp);
     container.appendChild(rowEl);
   });
 }
@@ -691,11 +704,23 @@ function cycleTileState(ri, ti) {
   renderGuessRows();
 }
 
-function updateGuessWord(ri, value) {
-  var word = value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,5);
-  guessRows[ri].word = word;
-  for (var i = word.length; i < 5; i++) guessRows[ri].states[i] = 'plain';
+function addLetter(ch) {
+  var ri = activeRowIndex();
+  if (guessRows[ri].word.length >= 5) return;
+  guessRows[ri].word += ch;
   renderGuessRows();
+}
+
+function backspaceLetter() {
+  for (var i = guessRows.length - 1; i >= 0; i--) {
+    if (guessRows[i].word.length > 0) {
+      var len = guessRows[i].word.length;
+      guessRows[i].states[len - 1] = 'plain';
+      guessRows[i].word = guessRows[i].word.slice(0, -1);
+      renderGuessRows();
+      return;
+    }
+  }
 }
 
 function clearGuesses() {
@@ -704,6 +729,61 @@ function clearGuesses() {
     row.states = ['plain','plain','plain','plain','plain'];
   });
   renderGuessRows();
+}
+
+// ─── Tier keyboard ────────────────────────────────────────────────────────────
+var TIER_GROUPS = [
+  {pts:1,  bg:'rgba(34,197,94,0.15)',  border:'#22c55e', color:'#22c55e', letters:['T','S','R','O','I','E','A']},
+  {pts:2,  bg:'rgba(59,130,246,0.15)', border:'#3b82f6', color:'#60a5fa', letters:['U','N','L','D']},
+  {pts:3,  bg:'rgba(234,179,8,0.15)',  border:'#ca8a04', color:'#eab308', letters:['Y','H','G']},
+  {pts:4,  bg:'rgba(249,115,22,0.15)', border:'#ea580c', color:'#fb923c', letters:['W','P','M','F','C','B']},
+  {pts:5,  bg:'rgba(239,68,68,0.15)',  border:'#dc2626', color:'#f87171', letters:['V','K']},
+  {pts:8,  bg:'rgba(236,72,153,0.15)', border:'#db2777', color:'#f472b6', letters:['X']},
+  {pts:10, bg:'rgba(168,85,247,0.15)', border:'#9333ea', color:'#c084fc', letters:['Z','Q','J']}
+];
+
+function buildTierKeyboard() {
+  var kb = document.getElementById('tierKeyboard');
+  kb.innerHTML = '';
+
+  TIER_GROUPS.forEach(function(group) {
+    var row = document.createElement('div');
+    row.className = 'tier-row';
+    group.letters.forEach(function(ch) {
+      var key = document.createElement('div');
+      key.className = 'tier-key';
+      key.style.cssText = 'background:'+group.bg+';border-color:'+group.border+';color:'+group.color+';';
+      key.innerHTML = ch+'<span class="tier-pts">'+group.pts+'</span>';
+      (function(c){ key.onclick = function(){ addLetter(c); }; })(ch);
+      row.appendChild(key);
+    });
+    // Backspace lives on the last row alongside the 10pt letters
+    if (group.pts === 10) {
+      var bsKey = document.createElement('div');
+      bsKey.className = 'tier-key tier-bs';
+      bsKey.textContent = '⌫';
+      bsKey.onclick = backspaceLetter;
+      row.appendChild(bsKey);
+    }
+    kb.appendChild(row);
+  });
+
+  // Legend
+  var legend = document.getElementById('tierLegend');
+  legend.innerHTML = '';
+  TIER_GROUPS.forEach(function(group) {
+    var item = document.createElement('div');
+    item.className = 'tier-legend-item';
+    var dot = document.createElement('div');
+    dot.className = 'tier-legend-dot';
+    dot.style.background = group.border;
+    var lbl = document.createElement('span');
+    lbl.textContent = group.pts+'pt';
+    lbl.style.color = group.color;
+    item.appendChild(dot);
+    item.appendChild(lbl);
+    legend.appendChild(item);
+  });
 }
 
 // Derive solver constraints from all guess rows
@@ -921,6 +1001,7 @@ document.getElementById('instructionsOverlay').addEventListener('click', functio
 // ─── Init ─────────────────────────────────────────────────────────────────────
 buildTlSlots();
 renderGuessRows();
+buildTierKeyboard();
 
 // ─── Service Worker registration ──────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
