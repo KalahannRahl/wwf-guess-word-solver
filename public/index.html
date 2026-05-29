@@ -189,32 +189,6 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 .guess-input:focus { border-color:var(--muted); }
 .guess-input::placeholder { color:var(--border); font-size:0.62rem; letter-spacing:0.1em; font-weight:400; }
 
-/* ── Keyboard ── */
-.keyboard { display:flex; flex-direction:column; gap:5px; }
-.kb-row { display:flex; gap:4px; justify-content:center; }
-.kb-key {
-  min-width:30px; height:36px; padding:0 4px; background:var(--surface2); border:1px solid var(--border);
-  border-radius:6px; font-family:'Orbitron',sans-serif; font-size:0.68rem; font-weight:600;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-  transition:all 0.15s; position:relative; user-select:none;
-}
-.kb-key .val { position:absolute; bottom:2px; right:3px; font-size:0.42rem; color:var(--muted); font-family:'Share Tech Mono',monospace; }
-.kb-key:hover { border-color:var(--accent); }
-/* Filter states */
-.kb-key.blocked  { background:rgba(239,68,68,0.15); border-color:var(--red);    color:var(--red);    text-decoration:line-through; }
-.kb-key.must-inc { background:rgba(16,185,129,0.15);  border-color:var(--green); color:var(--green); }
-.kb-key.must-exc { background:rgba(245,158,11,0.12); border-color:var(--accent3);color:var(--accent3); }
-
-.mode-row { display:flex; gap:6px; margin-bottom:10px; }
-.mode-btn {
-  flex:1; padding:7px 4px; border-radius:6px; border:1px solid var(--border); background:var(--surface2);
-  color:var(--muted); font-family:'Orbitron',sans-serif; font-size:0.52rem; letter-spacing:0.08em;
-  text-transform:uppercase; cursor:pointer; transition:all 0.15s; text-align:center;
-}
-.mode-btn.active-block   { border-color:var(--red);    color:var(--red);    background:rgba(239,68,68,0.1); }
-.mode-btn.active-include { border-color:var(--green);  color:var(--green);  background:rgba(16,185,129,0.1); }
-.mode-btn.active-exclude { border-color:var(--accent3);color:var(--accent3);background:rgba(245,158,11,0.1); }
-
 .reset-btn {
   font-size:0.58rem; color:var(--muted); background:none; border:1px solid var(--border); border-radius:6px;
   padding:4px 8px; cursor:pointer; font-family:'Orbitron',sans-serif; letter-spacing:0.1em; transition:all 0.15s;
@@ -309,7 +283,6 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 .modal-cancel:hover { color:var(--text); }
 
 @media (min-width:400px) {
-  .kb-key { min-width:34px; height:40px; font-size:0.78rem; }
   .tile { width:30px; height:30px; font-size:0.68rem; }
   .result-word { font-size:1.05rem; }
   .tl-box span { font-size:1rem; }
@@ -425,29 +398,18 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   <div class="card-title">Your Guesses</div>
   <div class="guess-hint">Type a word you guessed · tap each letter to mark it <span style="color:var(--green)">green</span> (right spot) or <span style="color:var(--accent3)">yellow</span> (wrong spot)</div>
   <div class="guess-section" id="guessRows"></div>
-  <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-    <button class="reset-btn" onclick="clearGuesses()">CLEAR ALL</button>
-  </div>
-</div>
-
-<!-- Letter filter -->
-<div class="card">
-  <div class="card-title">Letter Filter</div>
-  <div class="mode-row">
-    <button class="mode-btn active-include" id="modeInclude" onclick="setMode('include')">&#x2713; Must Have</button>
-    <button class="mode-btn"                id="modeExclude" onclick="setMode('exclude')">&#x2260; Must Not</button>
-  </div>
-  <div class="keyboard" id="keyboard"></div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">
-    <label id="excludeSLabel" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;user-select:none;" title="The puzzle answer is never a regular plural (e.g. CATS, DOGS). Toggle this on to hide words ending in S.">
+    <label id="excludeSLabel" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;user-select:none;" title="The puzzle answer is never a regular plural. Toggle to hide words ending in S.">
       <span id="excludeSToggle" onclick="toggleExcludeS()" style="display:inline-flex;width:34px;height:18px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);position:relative;cursor:pointer;transition:all 0.2s;flex-shrink:0;">
         <span id="excludeSThumb" style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:all 0.2s;"></span>
       </span>
       EXCLUDE -S ENDINGS
     </label>
-    <button class="reset-btn" onclick="resetLetters()">RESET LETTERS</button>
+    <button class="reset-btn" onclick="clearGuesses()">CLEAR ALL</button>
   </div>
 </div>
+
+<!-- Letter filter card removed — guess rows handle all letter constraints -->
 
 <!-- Results -->
 <div class="card" id="resultsCard" style="display:none;">
@@ -606,59 +568,6 @@ function bonusPositions(word) {
     return a.i-b.i;
   });
   return {tl:ranked[0].i, dl:ranked[1].i};
-}
-
-// ─── Keyboard ────────────────────────────────────────────────────────────────
-var KB_ROWS = [
-  ['Q','W','E','R','T','Y','U','I','O','P'],
-  ['A','S','D','F','G','H','J','K','L'],
-  ['Z','X','C','V','B','N','M']
-];
-var letterStates = {};
-var currentMode = 'include';
-
-function setMode(mode) {
-  currentMode = mode;
-  ['include','exclude'].forEach(function(m){
-    var id = 'mode'+(m==='include'?'Include':'Exclude');
-    document.getElementById(id).className = 'mode-btn'+(m===mode?' active-'+mode:'');
-  });
-}
-
-function buildKeyboard() {
-  var kb = document.getElementById('keyboard');
-  kb.innerHTML = '';
-  KB_ROWS.forEach(function(row){
-    var rowEl = document.createElement('div');
-    rowEl.className = 'kb-row';
-    row.forEach(function(letter){
-      var key = document.createElement('div');
-      key.id = 'key-'+letter;
-      key.innerHTML = letter+'<span class="val">'+LV[letter]+'</span>';
-      key.onclick = function(){ toggleLetter(letter); };
-      updateKeyState(key, letter);
-      rowEl.appendChild(key);
-    });
-    kb.appendChild(rowEl);
-  });
-}
-
-function updateKeyState(el, letter) {
-  var s = letterStates[letter];
-  el.className = 'kb-key'+(s==='blocked'?' blocked':s==='include'?' must-inc':s==='exclude'?' must-exc':'');
-}
-
-function toggleLetter(letter) {
-  var cur = letterStates[letter];
-  if (currentMode==='include') letterStates[letter] = cur==='include' ? null : 'include';
-  else                         letterStates[letter] = cur==='exclude' ? null : 'exclude';
-  var key = document.getElementById('key-'+letter);
-  if (key) updateKeyState(key, letter);
-}
-
-function resetLetters() {
-  Object.keys(letterStates).forEach(function(k){ delete letterStates[k]; });
-  buildKeyboard();
 }
 
 // ─── Exclude -S endings toggle ────────────────────────────────────────────────
@@ -849,20 +758,13 @@ async function solve() {
 
   var c = deriveConstraints();
 
-  // Keyboard must-have / must-not supplement the guess row constraints
-  var keyMustInc = Object.entries(letterStates).filter(function(e){return e[1]==='include';}).map(function(e){return e[0];});
-  var keyMustExc = Object.entries(letterStates).filter(function(e){return e[1]==='exclude';}).map(function(e){return e[0];});
-
-  var allMustHave = Array.from(new Set(c.mustHave.concat(keyMustInc)));
-  var allExcluded = new Set(Array.from(c.excluded).concat(keyMustExc));
-
   var params = new URLSearchParams({ score: targetScore });
   if (tlPosIdx !== -1) params.set('tlPos', tlPosIdx);
   if (dlPosIdx !== -1) params.set('dlPos', dlPosIdx);
   c.greenPos.forEach(function(ch, i){ if (ch) params.set('pos'+i, ch); });
   c.notPos.forEach(function(letters, i){ if (letters.length) params.set('notPos'+i, letters.join('')); });
-  if (allMustHave.length) params.set('mustInclude', allMustHave.join(''));
-  if (allExcluded.size)   params.set('mustExclude', Array.from(allExcluded).join(''));
+  if (c.mustHave.length)  params.set('mustInclude', Array.from(new Set(c.mustHave)).join(''));
+  if (c.excluded.size)    params.set('mustExclude', Array.from(c.excluded).join(''));
   if (excludeS) params.set('excludeS', '1');
 
   var card    = document.getElementById('resultsCard');
@@ -1017,7 +919,6 @@ document.getElementById('instructionsOverlay').addEventListener('click', functio
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-buildKeyboard();
 buildTlSlots();
 renderGuessRows();
 
