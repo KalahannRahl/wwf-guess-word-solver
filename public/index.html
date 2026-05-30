@@ -163,6 +163,12 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   color:var(--accent); box-shadow:0 0 10px rgba(0,212,255,0.3);
 }
 .tl-box.dl-active span { color:white; }
+/* 3RD active = slate (3rd highest value letter here — Row 1 has 3 TL markers) */
+.tl-box.t3-active {
+  background:rgba(100,116,139,0.2); border-color:#64748b;
+  color:#94a3b8; box-shadow:0 0 8px rgba(100,116,139,0.3);
+}
+.tl-box.t3-active span { color:white; }
 
 /* ── Guess rows ── */
 .guess-hint { font-size:0.62rem; color:var(--muted); margin-bottom:10px; letter-spacing:0.05em; }
@@ -273,6 +279,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 }
 .tile.tl { background:rgba(124,58,237,0.22); border-color:var(--accent2); color:#c4b5fd; }
 .tile.dl { background:rgba(0,212,255,0.15);  border-color:var(--accent);  color:var(--accent); }
+.tile.t3 { background:rgba(100,116,139,0.15); border-color:#475569; color:#94a3b8; }
 .tile .tv { position:absolute; bottom:1px; right:2px; font-size:0.38rem; opacity:0.7; font-family:'Share Tech Mono',monospace; }
 .tile .bx { position:absolute; top:0; left:0; right:0; text-align:center; font-size:0.38rem; font-family:'Orbitron',sans-serif; opacity:0.85; }
 
@@ -407,7 +414,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 <!-- TL/DL Position Lock -->
 <div class="card">
   <div class="card-title">Bonus Position Lock</div>
-  <div class="tl-hint">Tap to cycle each position: blank &#x2192; <span style="color:#c4b5fd">TL &#xD7;3</span> &#x2192; <span style="color:var(--accent)">DL &#xD7;2</span> &#x2192; blank</div>
+  <div class="tl-hint">Tap to cycle: blank &#x2192; <span style="color:#c4b5fd">TL &#xD7;3</span> &#x2192; <span style="color:var(--accent)">DL &#xD7;2</span> &#x2192; <span style="color:#94a3b8">3RD TL</span> &#x2192; blank</div>
   <div class="tl-slots" id="tlSlots"></div>
 </div>
 
@@ -445,6 +452,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
     <div class="legend">
       <div class="legend-item"><div class="legend-dot legend-tl"></div>3&#xD7; TL</div>
       <div class="legend-item"><div class="legend-dot legend-dl"></div>2&#xD7; DL</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#475569"></div>3&#xD7; 3rd</div>
     </div>
   </div>
   <div id="resultsContent"></div>
@@ -646,6 +654,9 @@ function updateTlBox(box, idx) {
   } else if (state === 'DL') {
     box.className = 'tl-box dl-active';
     box.innerHTML = '<span>'+(idx+1)+'</span>DL';
+  } else if (state === '3RD') {
+    box.className = 'tl-box t3-active';
+    box.innerHTML = '<span>'+(idx+1)+'</span>3RD';
   } else {
     box.className = 'tl-box';
     box.innerHTML = '<span>'+(idx+1)+'</span>';
@@ -654,7 +665,7 @@ function updateTlBox(box, idx) {
 
 function cycleTlDl(idx) {
   var cur = posBonus[idx];
-  posBonus[idx] = cur==='' ? 'TL' : cur==='TL' ? 'DL' : '';
+  posBonus[idx] = cur==='' ? 'TL' : cur==='TL' ? 'DL' : cur==='DL' ? '3RD' : '';
   var box = document.getElementById('tl-'+idx);
   if (box) updateTlBox(box, idx);
 }
@@ -835,12 +846,14 @@ async function solve() {
 
   var tlPosIdx = posBonus.indexOf('TL');
   var dlPosIdx = posBonus.indexOf('DL');
+  var t3PosIdx = posBonus.indexOf('3RD');
 
   var c = deriveConstraints();
 
   var params = new URLSearchParams({ score: targetScore });
   if (tlPosIdx !== -1) params.set('tlPos', tlPosIdx);
   if (dlPosIdx !== -1) params.set('dlPos', dlPosIdx);
+  if (t3PosIdx !== -1) params.set('p3Pos', t3PosIdx);
   c.greenPos.forEach(function(ch, i){ if (ch) params.set('pos'+i, ch); });
   c.notPos.forEach(function(letters, i){ if (letters.length) params.set('notPos'+i, letters.join('')); });
   if (c.mustHave.length)  params.set('mustInclude', Array.from(new Set(c.mustHave)).join(''));
@@ -938,13 +951,13 @@ async function solve() {
         tiles.className = 'result-tiles';
         word.split('').forEach(function(ch, i){
           var tile = document.createElement('div');
-          var isTL = i===bp.tl, isDL = i===bp.dl;
-          tile.className = 'tile'+(isTL?' tl':isDL?' dl':'');
+          var isTL = i===bp.tl, isDL = i===bp.dl, isT3 = i===bp.t3;
+          tile.className = 'tile'+(isTL?' tl':isDL?' dl':isT3?' t3':'');
           tile.innerHTML = ch+'<span class="tv">'+LV[ch]+'</span>';
-          if (isTL || isDL) {
+          if (isTL || isDL || isT3) {
             var bx = document.createElement('span');
             bx.className = 'bx';
-            bx.textContent = isTL?'3\xD7':'2\xD7';
+            bx.textContent = isTL?'3\xD7':isDL?'2\xD7':'3\xD7';
             tile.appendChild(bx);
           }
           tiles.appendChild(tile);

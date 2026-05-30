@@ -80,7 +80,7 @@ function bonusPositions(word) {
     if (b.a !== a.a) return b.a - a.a;
     return a.i - b.i;
   });
-  return { tl: ranked[0].i, dl: ranked[1].i };
+  return { tl: ranked[0].i, dl: ranked[1].i, t3: ranked[2].i };
 }
 
 // ─── Word cache ───────────────────────────────────────────────────────────────
@@ -133,6 +133,7 @@ app.get('/api/solve', (req, res) => {
     score,
     tlPos = '',
     dlPos = '',
+    p3Pos = '',
     mustInclude = '',
     mustExclude = '',
     blocked = '',
@@ -154,6 +155,7 @@ app.get('/api/solve', (req, res) => {
   // dlPos = 0-4 index where the 2nd-highest-value letter must land (DL ×2)
   const tlPosLock = tlPos !== '' ? parseInt(tlPos) : null;
   const dlPosLock = dlPos !== '' ? parseInt(dlPos) : null;
+  const p3PosLock = p3Pos !== '' ? parseInt(p3Pos) : null;
 
   // Letter filters
   const mustIncArr = mustInclude.toUpperCase().split('').filter(Boolean);
@@ -190,11 +192,12 @@ app.get('/api/solve', (req, res) => {
     // ① S-ending filter (regular plurals are never puzzle answers; keep non-plural S-enders)
     if (filterS && word.endsWith('S') && !isNonPluralS(word)) continue;
 
-    // ② TL/DL position lock check
-    if (tlPosLock !== null || dlPosLock !== null) {
+    // ② TL/DL/3RD position lock check
+    if (tlPosLock !== null || dlPosLock !== null || p3PosLock !== null) {
       const bp = bonusPositions(word);
       if (tlPosLock !== null && bp.tl !== tlPosLock) continue;
       if (dlPosLock !== null && bp.dl !== dlPosLock) continue;
+      if (p3PosLock !== null && bp.t3 !== p3PosLock) continue;
     }
 
     // ③ Exact position filters (green tiles)
