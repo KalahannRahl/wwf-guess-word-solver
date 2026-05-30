@@ -131,9 +131,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/solve', (req, res) => {
   const {
     score,
-    tlPos = '',
-    dlPos = '',
-    p3Pos = '',
+    tlPositions = '',
     mustInclude = '',
     mustExclude = '',
     blocked = '',
@@ -150,12 +148,11 @@ app.get('/api/solve', (req, res) => {
 
   const baseScore = targetScore / 3;
 
-  // TL/DL position lock — exact bonus position filter
-  // tlPos = 0-4 index where the highest-value letter must land (TL ×3)
-  // dlPos = 0-4 index where the 2nd-highest-value letter must land (DL ×2)
-  const tlPosLock = tlPos !== '' ? parseInt(tlPos) : null;
-  const dlPosLock = dlPos !== '' ? parseInt(dlPos) : null;
-  const p3PosLock = p3Pos !== '' ? parseInt(p3Pos) : null;
+  // Bonus position set — top-K letters must collectively land in these K positions
+  // tlPositions = comma-separated 0-indexed positions, e.g. "1,2,3"
+  const tlPosSet = tlPositions
+    ? new Set(tlPositions.split(',').map(Number).filter(n => n >= 0 && n <= 4))
+    : new Set();
 
   // Letter filters
   const mustIncArr = mustInclude.toUpperCase().split('').filter(Boolean);
@@ -192,12 +189,12 @@ app.get('/api/solve', (req, res) => {
     // ① S-ending filter (regular plurals are never puzzle answers; keep non-plural S-enders)
     if (filterS && word.endsWith('S') && !isNonPluralS(word)) continue;
 
-    // ② TL/DL/3RD position lock check
-    if (tlPosLock !== null || dlPosLock !== null || p3PosLock !== null) {
-      const bp = bonusPositions(word);
-      if (tlPosLock !== null && bp.tl !== tlPosLock) continue;
-      if (dlPosLock !== null && bp.dl !== dlPosLock) continue;
-      if (p3PosLock !== null && bp.t3 !== p3PosLock) continue;
+    // ② Bonus position set — top-K letters must ALL be at the K marked positions
+    if (tlPosSet.size > 0) {
+      const ranked = word.split('').map((ch, i) => ({ i, v: lv(ch), a: ch.charCodeAt(0) - 65 }));
+      ranked.sort((a, b) => b.v !== a.v ? b.v - a.v : b.a !== a.a ? b.a - a.a : a.i - b.i);
+      const topK = ranked.slice(0, tlPosSet.size);
+      if (!topK.every(r => tlPosSet.has(r.i))) continue;
     }
 
     // ③ Exact position filters (green tiles)

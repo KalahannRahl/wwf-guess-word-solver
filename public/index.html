@@ -157,18 +157,6 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   color:#c4b5fd; box-shadow:0 0 12px rgba(124,58,237,0.4);
 }
 .tl-box.tl-active span { color:white; }
-/* DL active = cyan (2nd highest value letter here) */
-.tl-box.dl-active {
-  background:rgba(0,212,255,0.15); border-color:var(--accent);
-  color:var(--accent); box-shadow:0 0 10px rgba(0,212,255,0.3);
-}
-.tl-box.dl-active span { color:white; }
-/* 3RD active = slate (3rd highest value letter here — Row 1 has 3 TL markers) */
-.tl-box.t3-active {
-  background:rgba(100,116,139,0.2); border-color:#64748b;
-  color:#94a3b8; box-shadow:0 0 8px rgba(100,116,139,0.3);
-}
-.tl-box.t3-active span { color:white; }
 
 /* ── Guess rows ── */
 .guess-hint { font-size:0.62rem; color:var(--muted); margin-bottom:10px; letter-spacing:0.05em; }
@@ -414,7 +402,7 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 <!-- TL/DL Position Lock -->
 <div class="card">
   <div class="card-title">Bonus Position Lock</div>
-  <div class="tl-hint">Tap to cycle: blank &#x2192; <span style="color:#c4b5fd">TL &#xD7;3</span> &#x2192; <span style="color:var(--accent)">DL &#xD7;2</span> &#x2192; <span style="color:#94a3b8">3RD TL</span> &#x2192; blank</div>
+  <div class="tl-hint">Tap the positions where the board shows bonus tiles. The top-N highest-value letters must all land in those N spots.</div>
   <div class="tl-slots" id="tlSlots"></div>
 </div>
 
@@ -621,8 +609,8 @@ function toggleExcludeS() {
   }
 }
 
-// ─── TL/DL Position lock — 3-state per position: '' | 'TL' | 'DL' ──────────
-var posBonus = ['','','','','']; // state per position
+// ─── Bonus position lock — 2-state per position: '' | 'TL' ─────────────────
+var posBonus = ['','','','','']; // '' = blank, 'TL' = marked bonus position
 
 function buildTlSlots() {
   var container = document.getElementById('tlSlots');
@@ -647,16 +635,9 @@ function buildTlSlots() {
 }
 
 function updateTlBox(box, idx) {
-  var state = posBonus[idx];
-  if (state === 'TL') {
+  if (posBonus[idx] === 'TL') {
     box.className = 'tl-box tl-active';
     box.innerHTML = '<span>'+(idx+1)+'</span>TL';
-  } else if (state === 'DL') {
-    box.className = 'tl-box dl-active';
-    box.innerHTML = '<span>'+(idx+1)+'</span>DL';
-  } else if (state === '3RD') {
-    box.className = 'tl-box t3-active';
-    box.innerHTML = '<span>'+(idx+1)+'</span>3RD';
   } else {
     box.className = 'tl-box';
     box.innerHTML = '<span>'+(idx+1)+'</span>';
@@ -664,8 +645,7 @@ function updateTlBox(box, idx) {
 }
 
 function cycleTlDl(idx) {
-  var cur = posBonus[idx];
-  posBonus[idx] = cur==='' ? 'TL' : cur==='TL' ? 'DL' : cur==='DL' ? '3RD' : '';
+  posBonus[idx] = posBonus[idx] === '' ? 'TL' : '';
   var box = document.getElementById('tl-'+idx);
   if (box) updateTlBox(box, idx);
 }
@@ -844,16 +824,14 @@ async function solve() {
   if (!targetScore || isNaN(targetScore)) { alert('Please enter a score'); return; }
   if (targetScore % 3 !== 0) { alert('Score must be divisible by 3 (e.g. 66, 69, 72…)'); return; }
 
-  var tlPosIdx = posBonus.indexOf('TL');
-  var dlPosIdx = posBonus.indexOf('DL');
-  var t3PosIdx = posBonus.indexOf('3RD');
+  var markedPositions = posBonus.reduce(function(acc, s, i) {
+    if (s === 'TL') acc.push(i); return acc;
+  }, []);
 
   var c = deriveConstraints();
 
   var params = new URLSearchParams({ score: targetScore });
-  if (tlPosIdx !== -1) params.set('tlPos', tlPosIdx);
-  if (dlPosIdx !== -1) params.set('dlPos', dlPosIdx);
-  if (t3PosIdx !== -1) params.set('p3Pos', t3PosIdx);
+  if (markedPositions.length) params.set('tlPositions', markedPositions.join(','));
   c.greenPos.forEach(function(ch, i){ if (ch) params.set('pos'+i, ch); });
   c.notPos.forEach(function(letters, i){ if (letters.length) params.set('notPos'+i, letters.join('')); });
   if (c.mustHave.length)  params.set('mustInclude', Array.from(new Set(c.mustHave)).join(''));
