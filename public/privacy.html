@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0e1a">
+<title>Privacy Policy — Guess Word Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --accent: #00d4ff;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --border: #1e3a5f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  padding: 0 0 60px;
+}
+.container { max-width: 680px; margin: 0 auto; padding: 32px 20px; }
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--accent); font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+  text-decoration: none; margin-bottom: 28px;
+  opacity: 0.8; transition: opacity 0.15s;
+}
+.back-link:hover { opacity: 1; }
+h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.1rem, 4vw, 1.6rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 60%, #f59e0b 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+}
+.subtitle {
+  color: var(--muted); font-size: 0.7rem; letter-spacing: 0.15em;
+  text-transform: uppercase; margin-bottom: 32px;
+}
+.divider { height: 1px; background: var(--border); margin: 28px 0; }
+h2 {
+  font-family: 'Orbitron', sans-serif; font-size: 0.72rem;
+  color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 12px; margin-top: 28px;
+}
+p { font-size: 0.82rem; line-height: 1.85; color: #94a3b8; margin-bottom: 14px; }
+p strong { color: var(--text); }
+ul { margin: 0 0 14px 20px; }
+li { font-size: 0.82rem; line-height: 1.85; color: #94a3b8; margin-bottom: 4px; }
+.highlight {
+  background: #111827; border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: 8px;
+  padding: 14px 16px; margin: 20px 0;
+}
+.highlight p { margin: 0; font-size: 0.8rem; }
+.updated { font-size: 0.65rem; color: var(--muted); margin-top: 36px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <a href="/" class="back-link">&#8592; Back to App</a>
+
+  <h1>Privacy Policy</h1>
+  <div class="subtitle">Guess Word Solver &mdash; Words With Friends Helper</div>
+
+  <div class="highlight">
+    <p><strong>Short version:</strong> Guess Word Solver does not collect, store, or share any personal information. It is a simple puzzle helper tool — you type a score and it suggests words.</p>
+  </div>
+
+  <h2>What This App Does</h2>
+  <p>
+    Guess Word Solver is a puzzle-helper tool for the Words With Friends daily Guess Word puzzle. You enter a target score and optional letter hints; the app searches a local word database and returns a list of matching words.
+  </p>
+
+  <h2>Information We Do Not Collect</h2>
+  <p>We do not collect any personal information. Specifically:</p>
+  <ul>
+    <li>No account registration or sign-in is required</li>
+    <li>No names, email addresses, or contact information are collected</li>
+    <li>No location data is collected</li>
+    <li>No device identifiers or advertising IDs are used</li>
+    <li>No usage analytics or tracking are performed</li>
+  </ul>
+
+  <h2>How the App Works</h2>
+  <p>
+    All word-solving logic runs on our server. When you press <strong>Solve</strong>, your score and letter filters are sent as a simple request to our server, which returns matching words. <strong>No personal data is included in these requests</strong> — only the puzzle parameters you type in (a score number and optional letter positions).
+  </p>
+  <p>
+    The app is a Progressive Web App (PWA) and caches a small set of static files on your device for offline loading. This cache contains only app shell files (HTML, CSS, icons) and no personal data.
+  </p>
+
+  <h2>Third-Party Services</h2>
+  <p>
+    The app loads fonts from <strong>Google Fonts</strong> (fonts.googleapis.com). This is a standard web service; Google may log font requests per their own privacy policy. No other third-party services, analytics platforms, or advertising networks are used.
+  </p>
+
+  <h2>Children's Privacy</h2>
+  <p>
+    This app does not knowingly collect any information from children or any other users. There is no user data collection of any kind.
+  </p>
+
+  <h2>Changes to This Policy</h2>
+  <p>
+    If this policy ever changes, the updated version will be posted at this URL. The date below will reflect the most recent revision.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    If you have questions about this privacy policy, you can reach us at <a href="mailto:chad.turgeon@gmail.com">chad.turgeon@gmail.com</a>.
+  </p>
+
+  <div class="divider"></div>
+  <p class="updated">Last updated: June 3, 2025</p>
+
+</div>
+</body>
+</html>

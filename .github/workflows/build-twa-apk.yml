@@ -29,21 +29,42 @@ jobs:
       - name: Install Bubblewrap CLI
         run: npm install -g @bubblewrap/cli
 
+      - name: Set up Android SDK components
+        run: |
+          # Determine SDK root — runners expose ANDROID_SDK_ROOT or ANDROID_HOME
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "Android SDK root: $SDK"
+          echo "Build-tools present:"
+          ls "$SDK/build-tools/" 2>/dev/null || echo "  (none found yet)"
+          # Accept licenses and ensure build-tools 34 + platform 34 are installed
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+            "build-tools;34.0.0" \
+            "platforms;android-34" 2>&1 | tail -5
+          echo "Build-tools after install:"
+          ls "$SDK/build-tools/"
+
       - name: Configure Bubblewrap
         run: |
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          JDK_HOME="$JAVA_HOME"
           mkdir -p ~/.bubblewrap
-          JDK_HOME=$(dirname $(dirname $(readlink -f $(which java))))
-          printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' \
-            "$JDK_HOME" \
-            "${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}" \
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' "$JDK_HOME" "$SDK" \
             > ~/.bubblewrap/config.json
           echo "Bubblewrap config:"
           cat ~/.bubblewrap/config.json
+          echo "Running doctor check:"
+          bubblewrap doctor 2>&1 || true
 
       - name: Decode keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > twa/keystore.jks
-          echo "Keystore decoded ($(stat -c%s twa/keystore.jks) bytes)"
+          BYTES=$(stat -c%s twa/keystore.jks)
+          echo "Keystore decoded: $BYTES bytes"
+          if [ "$BYTES" -lt 100 ]; then
+            echo "ERROR: keystore too small — KEYSTORE_BASE64 secret may not be set"
+            exit 1
+          fi
 
       - name: Patch version in twa-manifest.json
         run: |
@@ -60,18 +81,19 @@ jobs:
       - name: Build signed APK + AAB
         run: |
           cd twa
-          # Pipe keystore password twice (keystore pw + key pw — both are the same)
+          # Bubblewrap prompts for keystore password then key password (same value)
           printf '%s\n%s\n' \
             '${{ secrets.KEYSTORE_PASSWORD }}' \
             '${{ secrets.KEYSTORE_PASSWORD }}' \
             | bubblewrap build --skipPwaValidation 2>&1
 
       - name: Locate build outputs
+        if: always()
         run: |
           echo "=== APK/AAB files ==="
           find twa -name "*.apk" -o -name "*.aab" 2>/dev/null | sort
 
-      - name: Upload APK
+      - name: Upload APK + AAB
         uses: actions/upload-artifact@v4
         with:
           name: GuessWordSolver-v${{ github.event.inputs.version_name }}-${{ github.run_number }}
