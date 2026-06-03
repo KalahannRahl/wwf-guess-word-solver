@@ -414,11 +414,11 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
   <div class="tier-keyboard" id="tierKeyboard"></div>
   <div class="tier-legend" id="tierLegend"></div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">
-    <label id="excludeSLabel" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;user-select:none;" title="The puzzle answer is never a regular plural. Toggle to hide words ending in S.">
+    <label id="excludeSLabel" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;user-select:none;" title="Puzzle answers are rarely regular plurals. Toggle to include -S words anyway.">
       <span id="excludeSToggle" onclick="toggleExcludeS()" style="display:inline-flex;width:34px;height:18px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);position:relative;cursor:pointer;transition:all 0.2s;flex-shrink:0;">
         <span id="excludeSThumb" style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:all 0.2s;"></span>
       </span>
-      EXCLUDE -S ENDINGS
+      INCLUDE -S WORDS
     </label>
     <button class="reset-btn" onclick="clearGuesses()">CLEAR ALL</button>
   </div>
@@ -478,10 +478,10 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
 
     <!-- Step 2 -->
     <div class="inst-section">
-      <div class="inst-step-title"><span class="inst-step-num">2</span>Lock Bonus Positions</div>
+      <div class="inst-step-title"><span class="inst-step-num">2</span>Mark Bonus Positions</div>
       <div class="inst-body">
-        Tap each position button (1–5) to mark it as <span class="tag-tl">TL ×3</span> or <span class="tag-dl">DL ×2</span>.
-        One tap = TL, two taps = DL, three taps = clear. Locking these positions is your most powerful filter — it cuts results from hundreds of words down to a handful instantly.
+        Row 1 of the board shows bonus tiles at specific positions (1–5). Tap each matching position button to mark it — tap again to clear it.
+        The solver then guarantees that your word's top-N highest-value letters all land in those N marked spots. This is your most powerful filter and should always be your first step.
       </div>
     </div>
 
@@ -489,29 +489,29 @@ input[type="number"]:focus { border-color:var(--accent); box-shadow:var(--glow);
     <div class="inst-section">
       <div class="inst-step-title"><span class="inst-step-num">3</span>Hit Solve</div>
       <div class="inst-body">
-        The app returns all valid WWF words that can hit your target score, grouped by letter value pattern.
-        Results are sorted by most likely letters first based on the game's own priority system.
+        The app scans the full dictionary and returns every valid WWF word that hits your target score with the right letters in the right bonus spots.
+        Results are grouped by letter value pattern and sorted by most common letters first.
       </div>
     </div>
 
     <!-- Step 4 -->
     <div class="inst-section">
-      <div class="inst-step-title"><span class="inst-step-num">4</span>Use Your Guesses to Filter</div>
-      <div class="inst-body">After each guess the game gives you information. Use it:</div>
+      <div class="inst-step-title"><span class="inst-step-num">4</span>Enter Your Guesses to Filter</div>
+      <div class="inst-body">Use the color-coded keyboard to type each word you've tried. Then tap each letter tile to mark the game's feedback:</div>
       <div class="inst-list">
-        <div class="inst-list-item"><span class="inst-bullet">&#x2713;</span><span>Letters confirmed in the word → tap them in <strong>Must Have</strong></span></div>
-        <div class="inst-list-item"><span class="inst-bullet">&#x2260;</span><span>Letters confirmed NOT in the word → tap them in <strong>Must Not</strong></span></div>
-        <div class="inst-list-item"><span class="inst-bullet">&#x25A0;</span><span>Letter confirmed at exact position → enter it in the <strong>Position Lock</strong> boxes</span></div>
+        <div class="inst-list-item"><span class="inst-bullet" style="color:var(--green)">&#x25A0;</span><span><strong style="color:var(--green)">Green</strong> — correct letter, correct position</span></div>
+        <div class="inst-list-item"><span class="inst-bullet" style="color:var(--accent3)">&#x25A0;</span><span><strong style="color:var(--accent3)">Yellow</strong> — correct letter, wrong position</span></div>
+        <div class="inst-list-item"><span class="inst-bullet">&#x25A0;</span><span><strong>Plain</strong> — letter not in the answer</span></div>
       </div>
-      <div class="inst-body" style="margin-top:8px;">Hit Solve again — the list shrinks dramatically.</div>
+      <div class="inst-body" style="margin-top:8px;">Hit Solve again — the solver reads all 4 guess rows together and eliminates everything that contradicts your tile colours.</div>
     </div>
 
     <!-- Step 5 -->
     <div class="inst-section">
-      <div class="inst-step-title"><span class="inst-step-num">5</span>Lock TL/DL on Guess 3</div>
+      <div class="inst-step-title"><span class="inst-step-num">5</span>Narrow It Down</div>
       <div class="inst-body">
-        By Round 3 the board shows you exactly which position is <span class="tag-tl">TL ×3</span> and which is <span class="tag-dl">DL ×2</span>.
-        Use the position lock buttons to confirm these exactly. Combined with your letter filters you'll typically be down to 1–3 words at this point.
+        Between bonus positions and tile colours you'll usually be at 1–3 candidates by guess 3.
+        If an answer looks like a plural ending in <strong>-S</strong>, toggle <strong>INCLUDE -S WORDS</strong> on at the bottom of the guesses card — those words are hidden by default since puzzle answers are almost never regular plurals.
       </div>
     </div>
 
@@ -586,21 +586,22 @@ function bonusPositions(word) {
   return {tl:ranked[0].i, dl:ranked[1].i};
 }
 
-// ─── Exclude -S endings toggle ────────────────────────────────────────────────
-var excludeS = false;
+// ─── Include -S words toggle (default: S words excluded) ─────────────────────
+// excludeS=true means S words are hidden (the default); toggle turns them on
+var excludeS = true;
 
 function toggleExcludeS() {
   excludeS = !excludeS;
   var thumb = document.getElementById('excludeSThumb');
   var toggle = document.getElementById('excludeSToggle');
   var label = document.getElementById('excludeSLabel');
-  if (excludeS) {
+  if (!excludeS) { // toggle ON = showing S words
     toggle.style.background = 'rgba(16,185,129,0.25)';
     toggle.style.borderColor = 'var(--green)';
     thumb.style.left = '18px';
     thumb.style.background = 'var(--green)';
     label.style.color = 'var(--green)';
-  } else {
+  } else { // toggle OFF = S words hidden
     toggle.style.background = 'var(--surface2)';
     toggle.style.borderColor = 'var(--border)';
     thumb.style.left = '2px';

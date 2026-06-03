@@ -1,4 +1,4 @@
-const CACHE = 'ggw-v7';
+const CACHE = 'ggw-v8';
 const SHELL = [
   '/',
   '/index.html',
