@@ -17,5 +17,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Google Play signing keystore — back this up securely, never commit it
+*.jks
+*.keystore
+twa/keystore.b64
+
 # words.db IS included in git (868 KB, pre-seeded)
 # If you ever need to rebuild it: npm run setup

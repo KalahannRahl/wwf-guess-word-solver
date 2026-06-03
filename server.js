@@ -128,6 +128,12 @@ function computeStarters(candidates) {
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Digital Asset Links — required for TWA / Google Play verification
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(path.join(__dirname, 'public', '.well-known', 'assetlinks.json'));
+});
+
 app.get('/api/solve', (req, res) => {
   const {
     score,
