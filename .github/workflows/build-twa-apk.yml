@@ -45,10 +45,11 @@ jobs:
             exit 1
           fi
 
-      - name: Set up Gradle
-        uses: gradle/setup-gradle@v4
-        with:
-          gradle-version: '8.4'
+      - name: Install Gradle 8.4
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.4/bin" >> $GITHUB_PATH
 
       - name: Build signed APK + AAB
         env:
