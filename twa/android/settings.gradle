@@ -1,0 +1,2 @@
+rootProject.name = "GuessWordSolver"
+include ':app'

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Guess Word Solver</string>
+    <string name="app_hostname">wwf-guess-word-solver-production.up.railway.app</string>
+    <string name="app_host_url">https://wwf-guess-word-solver-production.up.railway.app</string>
+    <string name="asset_statements">[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.kalahannrahl.guesswordsolver","sha256_cert_fingerprints":["5D:55:EC:2C:74:3A:F8:20:FE:BD:68:AA:5D:9A:D2:30:FA:D0:F9:B5:63:B7:B8:C5:80:6E:AD:61:93:1A:51:C6"]}}]</string>
+</resources>
