@@ -5,6 +5,34 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ─── Stats DB ─────────────────────────────────────────────────────────────────
+const statsDb = new Database(path.join(__dirname, 'stats.db'));
+statsDb.exec(`
+  CREATE TABLE IF NOT EXISTS stats (
+    event TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0,
+    first_seen TEXT,
+    last_seen  TEXT
+  );
+  INSERT OR IGNORE INTO stats (event, count, first_seen, last_seen)
+    VALUES ('page_views', 0, datetime('now'), datetime('now'));
+  INSERT OR IGNORE INTO stats (event, count, first_seen, last_seen)
+    VALUES ('solves', 0, datetime('now'), datetime('now'));
+`);
+const incrStat = statsDb.prepare(`
+  UPDATE stats
+  SET count = count + 1, last_seen = datetime('now')
+  WHERE event = ?
+`);
+
+// Track page views on every HTML page load
+app.use((req, res, next) => {
+  if (req.method === 'GET' && (req.path === '/' || req.path === '/index.html')) {
+    incrStat.run('page_views');
+  }
+  next();
+});
+
 // ─── Letter values ────────────────────────────────────────────────────────────
 const LETTER_VALUES = {
   A:1,B:4,C:4,D:2,E:1,F:4,G:3,H:3,I:1,J:10,K:5,
@@ -224,6 +252,7 @@ app.get('/api/solve', (req, res) => {
     matched.push(word);
   }
 
+  incrStat.run('solves');
   matched.sort((a, b) => wordPriority(a) - wordPriority(b));
 
   // Group by sorted letter-value pattern
@@ -241,6 +270,14 @@ app.get('/api/solve', (req, res) => {
   const starters = computeStarters(matched);
 
   res.json({ total: matched.length, groups, starters });
+});
+
+// ─── /api/stats — usage counters ─────────────────────────────────────────────
+app.get('/api/stats', (req, res) => {
+  const rows = statsDb.prepare('SELECT event, count, first_seen, last_seen FROM stats').all();
+  const out = {};
+  for (const r of rows) out[r.event] = { count: r.count, first_seen: r.first_seen, last_seen: r.last_seen };
+  res.json(out);
 });
 
 // ─── /api/patterns — list valid breakdowns for a score ────────────────────────
